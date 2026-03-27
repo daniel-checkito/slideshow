@@ -240,6 +240,15 @@ html,body{height:100%;overflow:hidden;font-family:'DM Sans',sans-serif;backgroun
 .fld input,.fld textarea{background:var(--g1);border:1.5px solid var(--g2);color:var(--bk);padding:7px 9px;border-radius:5px;font-family:'DM Sans';font-size:12px;line-height:1.5;resize:vertical;transition:border-color .15s;width:100%;}
 .fld input:focus,.fld textarea:focus{outline:none;border-color:var(--or);background:#fff;}
 .divl{height:1px;background:var(--g2);margin:2px 0;}
+.img-upload-sec{display:flex;flex-direction:column;gap:6px;padding:10px;background:var(--g1);border-radius:7px;border:1.5px dashed var(--g2);}
+.img-upload-sec:hover{border-color:var(--or);}
+.img-prompt{font-size:10px;color:var(--g5);line-height:1.5;font-style:italic;cursor:text;user-select:all;}
+.img-prompt strong{color:var(--g7);font-style:normal;font-size:9px;letter-spacing:1px;text-transform:uppercase;display:block;margin-bottom:3px;}
+.img-upload-btn{display:flex;align-items:center;justify-content:center;gap:6px;padding:7px;background:#fff;border:1.5px solid var(--g2);border-radius:5px;font-size:11px;font-weight:700;color:var(--g5);cursor:pointer;transition:all .15s;}
+.img-upload-btn:hover{border-color:var(--or);color:var(--or);}
+.img-preview{width:100%;height:80px;object-fit:cover;border-radius:5px;cursor:pointer;}
+.img-clear{font-size:10px;color:var(--g5);text-align:center;cursor:pointer;padding:2px;}
+.img-clear:hover{color:#ef4444;}
 .fsrow{display:flex;align-items:center;gap:8px;}
 .fsrow input[type=range]{flex:1;accent-color:var(--or);}
 .fsval{font-size:11px;font-weight:700;color:var(--or);min-width:32px;text-align:right;}
@@ -376,7 +385,7 @@ html,body{height:100%;overflow:hidden;font-family:'DM Sans',sans-serif;backgroun
 // ═══════════════════════════════════════════════════
 // CONFIG — your n8n webhook URL
 // ═══════════════════════════════════════════════════
-const N8N = 'https://meshminds.app.n8n.cloud/webhook/carousel-studio';
+const N8N = 'https://your-n8n-instance.com/webhook/carousel-studio';
 
 // Export dimensions
 const EW = 1080, EH = 1300, RATIO = EH / EW;
@@ -670,14 +679,51 @@ async function doGenerate() {
 // ═══════════════════════════════════════════════════
 // NORMALIZE slide from n8n into our format
 // ═══════════════════════════════════════════════════
+function imgSection(i) {
+  const s = SLIDES[i];
+  const hasImg = !!s.bgImg;
+  const prompt = s.imgPrompt || '';
+  return `<div class="divl"></div>
+    <div class="esec">Background Image</div>
+    <div class="img-upload-sec" onclick="document.getElementById('imgInput${i}').click()">
+      <div class="img-prompt"><strong>AI Prompt (copy to Nanabana)</strong>${prompt||'No prompt generated'}</div>
+      ${hasImg
+        ? `<img class="img-preview" src="${s.bgImg||''}" onclick="event.stopPropagation();document.getElementById('imgInput${i}').click()">
+           <div class="img-clear" onclick="event.stopPropagation();clearImg(${i})">✕ Remove image</div>`
+        : `<div class="img-upload-btn">📁 Upload generated image</div>`
+      }
+    </div>
+    <input type="file" id="imgInput${i}" accept="image/*" style="display:none" onchange="loadImg(${i},this)">`;
+}
+
+function loadImg(idx, input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    SLIDES[idx].bgImg = e.target.result;
+    refresh();
+    buildEditor(SLIDES[idx]);
+    buildThumbs();
+  };
+  reader.readAsDataURL(file);
+}
+
+function clearImg(idx) {
+  SLIDES[idx].bgImg = '';
+  refresh();
+  buildEditor(SLIDES[idx]);
+  buildThumbs();
+}
+
 function normSlide(s, i) {
   const base = { id:i, fs:1.0, accent: i%2===0?'orange':'yellow' };
-  if (s.type==='hero')    return {...base, type:'hero',    tag:s.eyebrow||s.tag||'🔥 Make Money 3D Printing', headline:s.headline||'', subline:s.subheadline||s.subline||''};
-  if (s.type==='problem') return {...base, type:'content', accent:'orange', eyebrow:s.eyebrow||'THE PROBLEM', headline:s.headline||'', body:s.body||'', stat:s.stat||'', statLabel:s.statLabel||''};
+  if (s.type==='hero')    return {...base, imgPrompt:s.imgPrompt||'', type:'hero',    tag:s.eyebrow||s.tag||'🔥 Make Money 3D Printing', headline:s.headline||'', subline:s.subheadline||s.subline||''};
+  if (s.type==='problem') return {...base, imgPrompt:s.imgPrompt||'', type:'content', accent:'orange', eyebrow:s.eyebrow||'THE PROBLEM', headline:s.headline||'', body:s.body||'', stat:s.stat||'', statLabel:s.statLabel||''};
   if (s.type==='value')   return {...base, type:'content', eyebrow:s.eyebrow||'KEY INSIGHT', headline:s.headline||'', body:s.body||'', tip:s.tipBox||s.tip||'', stat:s.stat||'', statLabel:s.statLabel||''};
-  if (s.type==='summary') return {...base, type:'summary', headline:s.headline||'THE *TAKEAWAY*', items:s.listItems||s.items||[]};
+  if (s.type==='summary') return {...base, imgPrompt:s.imgPrompt||'', type:'summary', headline:s.headline||'THE *TAKEAWAY*', items:s.listItems||s.items||[]};
   if (s.type==='cta')     return {...base, type:'cta', eyebrow:"Don't forget this", headline:'SAVE THIS *POST* 💾', cta1:s.cta1||'💬 Comment for free files', cta2:s.cta2||'🔔 Follow @meshminds3d'};
-  return {...base, ...s}; // passthrough already-normalized
+  return {...base, ...s, imgPrompt: s.imgPrompt||''}; // passthrough
 }
 
 // ═══════════════════════════════════════════════════
@@ -763,6 +809,7 @@ function buildEditor(s) {
     h+=fi('Primary Button','cta1',s.cta1);
     h+=fi('Secondary Button','cta2',s.cta2);
   }
+  h += imgSection(cur);
   es.innerHTML=h;
 }
 
