@@ -484,10 +484,14 @@ async function doPlan() {
   setStep(2);
 
   try {
+    const ctrl1 = new AbortController();
+    const t1 = setTimeout(() => ctrl1.abort(), 60000);
     const res = await fetch(N8N, {
       method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ action:'plan', message: topic })
+      body: JSON.stringify({ action:'plan', message: topic }),
+      keepalive: true, signal: ctrl1.signal
     });
+    clearTimeout(t1);
     const data = await res.json();
     removeTyping();
 
@@ -501,7 +505,7 @@ async function doPlan() {
 
   } catch(err) {
     removeTyping();
-    addMsg('ai', `❌ Network error: ${err.message}`);
+    addMsg('ai', `❌ ${err.name==='AbortError'?'Request timed out — n8n is taking too long. Try again.':'Network error: '+err.message}`);
     setStep(1);
   }
   setBusy(false);
@@ -604,10 +608,14 @@ async function doReplan(originalTopic) {
   addTyping('Adjusting plan…');
 
   try {
+    const ctrl3 = new AbortController();
+    const t3 = setTimeout(() => ctrl3.abort(), 60000);
     const res = await fetch(N8N, {
       method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ action:'plan', message: originalTopic, angleAdjustment: angle })
+      body: JSON.stringify({ action:'plan', message: originalTopic, angleAdjustment: angle }),
+      keepalive: true, signal: ctrl3.signal
     });
+    clearTimeout(t3);
     const data = await res.json();
     removeTyping();
     if (!data.success) { addMsg('ai', `❌ ${data.error||'Re-plan failed.'}`); setBusy(false); return; }
@@ -633,10 +641,14 @@ async function doGenerate() {
   addTyping('Generating all slides…');
 
   try {
+    const ctrl2 = new AbortController();
+    const t2 = setTimeout(() => ctrl2.abort(), 90000);
     const res = await fetch(N8N, {
       method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ action:'generate', plan: currentPlan })
+      body: JSON.stringify({ action:'generate', plan: currentPlan }),
+      keepalive: true, signal: ctrl2.signal
     });
+    clearTimeout(t2);
     const data = await res.json();
     removeTyping();
     hideLoad();
