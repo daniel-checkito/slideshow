@@ -249,6 +249,9 @@ html,body{height:100%;overflow:hidden;font-family:'DM Sans',sans-serif;backgroun
 .img-preview{width:100%;height:80px;object-fit:cover;border-radius:5px;cursor:pointer;}
 .img-clear{font-size:10px;color:var(--g5);text-align:center;cursor:pointer;padding:2px;}
 .img-clear:hover{color:#ef4444;}
+.copy-prompt-btn{display:flex;align-items:center;justify-content:center;gap:5px;padding:5px 8px;background:#fff;border:1.5px solid var(--g2);border-radius:5px;font-size:10px;font-weight:700;color:var(--g5);cursor:pointer;transition:all .15s;width:100%;}
+.copy-prompt-btn:hover{border-color:var(--or);color:var(--or);}
+.copy-prompt-btn.copied{border-color:#22c55e;color:#22c55e;}
 .fsrow{display:flex;align-items:center;gap:8px;}
 .fsrow input[type=range]{flex:1;accent-color:var(--or);}
 .fsval{font-size:11px;font-weight:700;color:var(--or);min-width:32px;text-align:right;}
@@ -695,17 +698,30 @@ function imgSection(i) {
   const s = SLIDES[i];
   const hasImg = !!s.bgImg;
   const prompt = s.imgPrompt || '';
-  return `<div class="divl"></div>
-    <div class="esec">Background Image</div>
+  const safePrompt = prompt.replace(/`/g, "'");
+  return `<div class="esec">Background Image</div>
     <div class="img-upload-sec" onclick="document.getElementById('imgInput${i}').click()">
-      <div class="img-prompt"><strong>AI Prompt (copy to Nanabana)</strong>${prompt||'No prompt generated'}</div>
+      <div class="img-prompt"><strong>AI Prompt — copy to Nanabana</strong>${prompt||'No prompt generated'}</div>
+      ${prompt ? `<button class="copy-prompt-btn" id="cpbtn${i}" onclick="event.stopPropagation();copyPrompt(${i})">📋 Copy prompt</button>` : ''}
       ${hasImg
         ? `<img class="img-preview" src="${s.bgImg||''}" onclick="event.stopPropagation();document.getElementById('imgInput${i}').click()">
            <div class="img-clear" onclick="event.stopPropagation();clearImg(${i})">✕ Remove image</div>`
         : `<div class="img-upload-btn">📁 Upload generated image</div>`
       }
     </div>
-    <input type="file" id="imgInput${i}" accept="image/*" style="display:none" onchange="loadImg(${i},this)">`;
+    <input type="file" id="imgInput${i}" accept="image/*" style="display:none" onchange="loadImg(${i},this)">
+    <div class="divl"></div>`;
+}
+
+function copyPrompt(i) {
+  const prompt = SLIDES[i].imgPrompt || '';
+  navigator.clipboard.writeText(prompt).then(() => {
+    const btn = document.getElementById('cpbtn' + i);
+    if (!btn) return;
+    btn.textContent = '✓ Copied!';
+    btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = '📋 Copy prompt'; btn.classList.remove('copied'); }, 2000);
+  });
 }
 
 function loadImg(idx, input) {
@@ -789,7 +805,8 @@ function buildEditor(s) {
     if(ta) return `<div class="fld"><label>${lbl}</label><textarea rows="${rows||2}" oninput="upd(${cur},'${key}',this.value)">${v}</textarea></div>`;
     return `<div class="fld"><label>${lbl}</label><input type="text" value="${v}" oninput="upd(${cur},'${key}',this.value)"></div>`;
   };
-  let h=`<div class="esec">Typography</div>
+  let h = imgSection(cur);
+  h+=`<div class="esec">Typography</div>
     <div class="fld"><label>Font Scale</label><div class="fsrow">
       <input type="range" min="0.6" max="2.0" step="0.05" value="${s.fs||1}"
         oninput="upd(${cur},'fs',parseFloat(this.value));document.getElementById('fsv').textContent=Math.round(parseFloat(this.value)*100)+'%'">
@@ -821,7 +838,6 @@ function buildEditor(s) {
     h+=fi('Primary Button','cta1',s.cta1);
     h+=fi('Secondary Button','cta2',s.cta2);
   }
-  h += imgSection(cur);
   es.innerHTML=h;
 }
 
