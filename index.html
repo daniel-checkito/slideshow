@@ -1,0 +1,830 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>meshminds3d — Carousel Studio</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box;}
+:root{
+  --or:#FF6B00; --yl:#FFD600; --bk:#111; --wh:#fff;
+  --g1:#F5F5F5; --g2:#E8E8E8; --g3:#CACACA; --g5:#888; --g7:#444;
+  --chat-w:320px; --top-h:52px; --ed-w:260px;
+  /* Instagram portrait ratio: 1080x1300 = 0.8307... */
+  --slide-ratio: calc(1300 / 1080);
+}
+html,body{height:100%;overflow:hidden;font-family:'DM Sans',sans-serif;background:var(--g1);color:var(--bk);}
+
+/* ── TOPBAR ── */
+#tb{
+  position:fixed;top:0;left:0;right:0;height:var(--top-h);
+  background:#fff;border-bottom:1px solid var(--g2);
+  display:flex;align-items:center;padding:0 16px;gap:10px;
+  z-index:100;box-shadow:0 1px 4px rgba(0,0,0,.06);
+}
+.logo{font-family:'Bebas Neue';font-size:18px;letter-spacing:2px;color:var(--or);flex-shrink:0;}
+.logo-sub{font-size:11px;color:var(--g5);font-weight:600;letter-spacing:1px;}
+.tsep{width:1px;height:20px;background:var(--g2);}
+.sp{flex:1;}
+.xb{
+  display:flex;align-items:center;gap:5px;padding:8px 16px;
+  border-radius:6px;font-size:12px;font-weight:700;border:none;
+  cursor:pointer;transition:all .15s;white-space:nowrap;
+  background:var(--or);color:#fff;
+}
+.xb:hover{background:#e55f00;}
+.xb:disabled{opacity:.4;cursor:not-allowed;}
+
+/* ── 3-COL LAYOUT ── */
+#app{
+  position:fixed;top:var(--top-h);left:0;right:0;bottom:0;
+  display:grid;
+  grid-template-columns:var(--chat-w) 1fr var(--ed-w);
+}
+
+/* ══════════════════════════════════
+   LEFT — AI CHAT PANEL
+══════════════════════════════════ */
+#chat{background:#fff;border-right:1px solid var(--g2);display:flex;flex-direction:column;overflow:hidden;}
+
+.chat-head{padding:14px 16px;border-bottom:1px solid var(--g2);flex-shrink:0;}
+.chat-head h2{font-size:13px;font-weight:800;color:var(--bk);}
+.chat-head p{font-size:11px;color:var(--g5);margin-top:3px;line-height:1.45;}
+
+.chips{padding:10px 12px;display:flex;flex-wrap:wrap;gap:5px;border-bottom:1px solid var(--g2);flex-shrink:0;}
+.chip{
+  padding:4px 10px;border-radius:100px;border:1.5px solid var(--g2);
+  font-size:11px;font-weight:600;color:var(--g7);cursor:pointer;
+  transition:all .15s;background:#fff;
+}
+.chip:hover{border-color:var(--or);color:var(--or);}
+
+#msgs{flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:10px;}
+#msgs::-webkit-scrollbar{width:3px;}
+#msgs::-webkit-scrollbar-thumb{background:var(--g2);border-radius:2px;}
+
+.msg{display:flex;flex-direction:column;gap:3px;max-width:93%;}
+.msg.user{align-self:flex-end;align-items:flex-end;}
+.msg.ai{align-self:flex-start;align-items:flex-start;}
+.msg-bubble{padding:9px 12px;border-radius:10px;font-size:12px;line-height:1.55;}
+.msg.user .msg-bubble{background:var(--or);color:#fff;border-radius:10px 10px 3px 10px;}
+.msg.ai .msg-bubble{background:var(--g1);color:var(--bk);border-radius:10px 10px 10px 3px;border:1px solid var(--g2);}
+.msg-time{font-size:9px;color:var(--g5);}
+
+.typing{display:flex;align-items:center;gap:4px;padding:10px 12px;background:var(--g1);border-radius:10px;width:fit-content;border:1px solid var(--g2);}
+.typing span{width:6px;height:6px;border-radius:50%;background:var(--g5);animation:bounce .9s infinite;}
+.typing span:nth-child(2){animation-delay:.15s;}
+.typing span:nth-child(3){animation-delay:.3s;}
+@keyframes bounce{0%,60%,100%{transform:translateY(0)}30%{transform:translateY(-6px)}}
+
+.chat-in{padding:12px;border-top:1px solid var(--g2);flex-shrink:0;display:flex;flex-direction:column;gap:7px;}
+.chat-ta{
+  width:100%;border:1.5px solid var(--g2);border-radius:8px;
+  padding:9px 11px;font-family:'DM Sans';font-size:12px;
+  line-height:1.5;resize:none;color:var(--bk);background:#fff;
+  transition:border-color .15s;
+}
+.chat-ta:focus{outline:none;border-color:var(--or);}
+.chat-send{
+  width:100%;background:var(--or);color:#fff;border:none;
+  border-radius:7px;padding:9px;font-family:'DM Sans';
+  font-size:13px;font-weight:700;cursor:pointer;transition:background .15s;
+}
+.chat-send:hover{background:#e55f00;}
+.chat-send:disabled{background:var(--g3);cursor:not-allowed;}
+
+.apply-btn{
+  margin-top:6px;padding:6px 12px;background:#fff;
+  border:1.5px solid var(--or);color:var(--or);border-radius:6px;
+  font-size:11px;font-weight:700;cursor:pointer;transition:all .15s;
+}
+.apply-btn:hover{background:var(--or);color:#fff;}
+
+/* ══════════════════════════════════
+   CENTER — SLIDE PREVIEW
+══════════════════════════════════ */
+#ctr{
+  display:flex;flex-direction:column;align-items:center;
+  justify-content:center;gap:12px;background:var(--g1);
+  overflow:hidden;position:relative;
+}
+#sf{
+  position:relative;border-radius:6px;flex-shrink:0;overflow:hidden;
+  box-shadow:0 8px 36px rgba(0,0,0,.18),0 2px 8px rgba(0,0,0,.1);
+}
+#slideEl{position:relative;overflow:hidden;background:#111;}
+
+#nr{display:flex;align-items:center;gap:10px;flex-shrink:0;}
+.nb{
+  width:30px;height:30px;background:#fff;border:1px solid var(--g2);
+  border-radius:50%;cursor:pointer;font-size:13px;
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:0 1px 3px rgba(0,0,0,.08);transition:all .15s;
+}
+.nb:hover:not(:disabled){border-color:var(--or);}
+.nb:disabled{opacity:.25;cursor:default;}
+.nc{font-size:12px;font-weight:700;color:var(--g5);min-width:36px;text-align:center;}
+.nc em{color:var(--bk);font-style:normal;}
+.ndots{display:flex;gap:5px;}
+.nd{width:5px;height:5px;border-radius:50%;background:var(--g3);cursor:pointer;transition:all .2s;}
+.nd.on{background:var(--or);transform:scale(1.4);}
+
+/* ══════════════════════════════════
+   RIGHT — EDITOR
+══════════════════════════════════ */
+#ed{background:#fff;border-left:1px solid var(--g2);display:flex;flex-direction:column;overflow:hidden;}
+.eh{
+  padding:11px 14px;border-bottom:1px solid var(--g2);
+  display:flex;align-items:center;justify-content:space-between;flex-shrink:0;
+}
+.eh h3{font-size:10px;letter-spacing:2px;color:var(--g5);text-transform:uppercase;}
+.et{font-size:11px;font-weight:800;color:var(--or);}
+
+.thumb-strip{
+  padding:8px;border-bottom:1px solid var(--g2);
+  display:flex;gap:5px;overflow-x:auto;flex-shrink:0;
+}
+.thumb-strip::-webkit-scrollbar{height:3px;}
+.thumb-strip::-webkit-scrollbar-thumb{background:var(--g2);}
+.th{
+  /* Portrait thumbnail ratio 1080/1300 */
+  width:38px;height:46px;border-radius:4px;
+  border:2px solid var(--g2);overflow:hidden;cursor:pointer;
+  position:relative;background:#111;flex-shrink:0;transition:border-color .15s;
+}
+.th.on{border-color:var(--or);}
+.th-n{position:absolute;top:2px;left:3px;font-size:7px;color:rgba(255,255,255,.3);font-family:'Bebas Neue';z-index:2;}
+.th-ttl{
+  position:relative;z-index:2;width:100%;height:100%;
+  display:flex;align-items:center;justify-content:center;
+  font-family:'Bebas Neue';font-size:8px;color:#fff;text-align:center;padding:2px;
+}
+
+.es{flex:1;overflow-y:auto;padding:12px 14px;display:flex;flex-direction:column;gap:10px;}
+.es::-webkit-scrollbar{width:3px;}
+.es::-webkit-scrollbar-thumb{background:var(--g2);border-radius:2px;}
+
+.fld{display:flex;flex-direction:column;gap:4px;}
+.fld label{font-size:10px;font-weight:700;letter-spacing:1.5px;color:var(--g5);text-transform:uppercase;}
+.fld input,.fld textarea{
+  background:var(--g1);border:1.5px solid var(--g2);color:var(--bk);
+  padding:7px 9px;border-radius:5px;font-family:'DM Sans';
+  font-size:12px;line-height:1.5;resize:vertical;
+  transition:border-color .15s;width:100%;
+}
+.fld input:focus,.fld textarea:focus{outline:none;border-color:var(--or);background:#fff;}
+.divl{height:1px;background:var(--g2);margin:2px 0;}
+
+.cap-sec{border-top:1px solid var(--g2);padding:10px 14px;flex-shrink:0;}
+.cap-sec h4{font-size:10px;font-weight:700;letter-spacing:2px;color:var(--g5);text-transform:uppercase;margin-bottom:6px;}
+.cap-box{
+  background:var(--g1);border:1.5px solid var(--g2);border-radius:5px;
+  padding:8px;font-size:11px;line-height:1.6;color:var(--g7);
+  max-height:80px;overflow-y:auto;white-space:pre-wrap;user-select:all;cursor:text;
+}
+.cpbtn{
+  background:var(--g1);border:1.5px solid var(--g2);color:var(--g7);
+  padding:6px;border-radius:5px;font-size:12px;font-weight:700;
+  cursor:pointer;width:100%;font-family:'DM Sans';margin-top:6px;transition:all .15s;
+}
+.cpbtn:hover{border-color:var(--or);color:var(--or);}
+
+/* Export overlay */
+#ov{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;align-items:center;justify-content:center;z-index:9999;backdrop-filter:blur(4px);}
+#ov.on{display:flex;}
+.ocard{background:#fff;border-radius:12px;padding:28px 32px;text-align:center;width:270px;display:flex;flex-direction:column;gap:11px;box-shadow:0 20px 60px rgba(0,0,0,.25);}
+.ocard h3{font-family:'Bebas Neue';font-size:20px;letter-spacing:2px;color:var(--or);}
+.ocard p{font-size:12px;color:var(--g5);}
+.obar{height:4px;background:var(--g2);border-radius:3px;overflow:hidden;}
+.ofill{height:100%;background:var(--or);border-radius:3px;transition:width .3s;width:0%;}
+.ost{font-size:11px;color:var(--g5);}
+
+.empty-state{
+  display:flex;flex-direction:column;align-items:center;
+  justify-content:center;height:100%;gap:10px;padding:20px;text-align:center;
+}
+.empty-state .icon{font-size:36px;}
+.empty-state h3{font-size:14px;font-weight:700;color:var(--bk);}
+.empty-state p{font-size:12px;color:var(--g5);line-height:1.5;}
+</style>
+</head>
+<body>
+
+<div id="tb">
+  <div class="logo">meshminds3d</div>
+  <span class="logo-sub">· Carousel Studio</span>
+  <div class="tsep"></div>
+  <span style="font-size:11px;color:var(--g5);">Instagram 1080×1300</span>
+  <div class="sp"></div>
+  <button class="xb" id="expBtn" onclick="doExp()" disabled>📸 Download ZIP</button>
+</div>
+
+<div id="app">
+
+  <!-- LEFT: AI CHAT -->
+  <div id="chat">
+    <div class="chat-head">
+      <h2>🤖 AI Slide Generator</h2>
+      <p>Type a topic — Claude writes all your slides automatically.</p>
+    </div>
+    <div class="chips">
+      <div class="chip" onclick="setTopic('5 3D printing products that sell on Etsy')">Etsy products</div>
+      <div class="chip" onclick="setTopic('Why most people quit 3D printing in 6 months')">Why people quit</div>
+      <div class="chip" onclick="setTopic('How to price your 3D prints for profit')">Pricing guide</div>
+      <div class="chip" onclick="setTopic('Bambu Lab A1 Mini honest review')">Printer review</div>
+      <div class="chip" onclick="setTopic('Make €500/month with one 3D printer')">Make money</div>
+      <div class="chip" onclick="setTopic('PLA vs PETG vs ABS — which to use')">Material guide</div>
+    </div>
+    <div id="msgs">
+      <div class="msg ai">
+        <div class="msg-bubble">👋 Tell me what to post about and I'll write all your carousel slides — hook, content, stats, CTA, and the full caption.</div>
+        <div class="msg-time">Now</div>
+      </div>
+    </div>
+    <div class="chat-in">
+      <textarea class="chat-ta" id="topicInput" rows="3" placeholder="e.g. '5 products to 3D print and sell this summer'…"></textarea>
+      <button class="chat-send" id="sendBtn" onclick="sendMsg()">Generate Slides ✨</button>
+    </div>
+  </div>
+
+  <!-- CENTER: PREVIEW -->
+  <div id="ctr">
+    <div id="sf">
+      <div id="slideEl">
+        <div class="empty-state">
+          <div class="icon">🖨️</div>
+          <h3>No slides yet</h3>
+          <p>Type a topic in the chat to generate your Instagram carousel.</p>
+        </div>
+      </div>
+    </div>
+    <div id="nr" style="display:none">
+      <button class="nb" id="pb" onclick="nav(-1)">←</button>
+      <div class="nc"><em id="cn">1</em> / <span id="tn">0</span></div>
+      <button class="nb" id="nb2" onclick="nav(1)">→</button>
+    </div>
+    <div class="ndots" id="dt"></div>
+  </div>
+
+  <!-- RIGHT: EDITOR -->
+  <div id="ed">
+    <div class="eh"><h3>Edit Slide</h3><div class="et" id="etl">—</div></div>
+    <div class="thumb-strip" id="thumbStrip"></div>
+    <div class="es" id="es">
+      <div style="padding:20px;text-align:center;color:var(--g5);font-size:12px;line-height:1.6;">
+        Generate slides to start editing.
+      </div>
+    </div>
+    <div class="cap-sec">
+      <h4>Caption</h4>
+      <div class="cap-box" id="capBox">Caption appears here after generating slides.</div>
+      <button class="cpbtn" onclick="doCopy()">Copy Caption + Hashtags</button>
+    </div>
+  </div>
+</div>
+
+<div id="ov">
+  <div class="ocard">
+    <h3 id="ot">Exporting…</h3>
+    <p id="od">Rendering slides at 1080×1300</p>
+    <div class="obar"><div class="ofill" id="of"></div></div>
+    <div class="ost" id="os">Starting…</div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════
+// CONSTANTS — Instagram portrait 1080×1300
+// ═══════════════════════════════════════════════
+const EW = 1080; // export width
+const EH = 1300; // export height
+const RATIO = EH / EW; // 1300/1080 ≈ 1.2037
+
+// ═══════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════
+let SLIDES = [];
+let caption = '';
+let cur = 0;
+let SSZ = 400; // preview width (height = SSZ * RATIO)
+let isGenerating = false;
+
+function SSH() { return Math.round(SSZ * RATIO); }
+
+// ═══════════════════════════════════════════════
+// FONT SIZE — base values at 1080px export width
+// ═══════════════════════════════════════════════
+const BASE = {
+  h1: 130, h2: 96, eyebrow: 28, sub: 40,
+  body: 36, box: 30, stat: 48, statSub: 24,
+  tag: 26, listitem: 32, btnp: 28, btns: 24,
+  wm: 20, ct: 18
+};
+function sz(role, fs, w) {
+  return Math.round((BASE[role] || 32) * ((w || SSZ) / EW) * (fs || 1));
+}
+
+// ═══════════════════════════════════════════════
+// SIZING — keeps slide fixed & perfectly centered
+// ═══════════════════════════════════════════════
+function calcSz() {
+  const c = document.getElementById('ctr');
+  const r = c.getBoundingClientRect();
+  const maxW = r.width - 40;
+  const maxH = r.height - 70;
+  // Fit portrait slide into available space
+  const byW = maxW;
+  const byH = maxH / RATIO;
+  SSZ = Math.floor(Math.min(byW, byH));
+  SSZ = Math.max(160, SSZ);
+
+  const sf = document.getElementById('sf');
+  sf.style.width  = SSZ + 'px';
+  sf.style.height = SSH() + 'px';
+  document.getElementById('slideEl').style.cssText =
+    `width:${SSZ}px;height:${SSH()}px;`;
+}
+
+// ═══════════════════════════════════════════════
+// SLIDE RENDERER
+// ═══════════════════════════════════════════════
+function accent(s) { return s.accent === 'yellow' ? '#FFD600' : '#FF6B00'; }
+
+function mkSlide(s, w, h) {
+  const OR = '#FF6B00';
+  const ac = accent(s);
+  const prog = ((s.id + 1) / SLIDES.length * 100).toFixed(0);
+  const pbH  = Math.max(3, Math.round(w * .004));
+  const PAD  = Math.round(w * .08);
+  const dotSz = Math.round(w * .055);
+
+  // Background
+  const bg = s.bgImg
+    ? `<div style="position:absolute;inset:0;background:url('${s.bgImg}') center/cover;z-index:0"></div>
+       <div style="position:absolute;inset:0;background:linear-gradient(160deg,rgba(0,0,0,.82),rgba(0,0,0,.55));z-index:1"></div>`
+    : `<div style="position:absolute;inset:0;background:linear-gradient(145deg,#1a1a1a,#0d0d0d);z-index:0"></div>`;
+
+  // Dot grid
+  const dots = `<div style="position:absolute;inset:0;background-image:radial-gradient(circle,rgba(255,255,255,.055) 1px,transparent 1px);background-size:${dotSz}px ${dotSz}px;z-index:2;pointer-events:none"></div>`;
+
+  // Progress + watermark + counter
+  const pb  = `<div style="position:absolute;bottom:0;left:0;height:${pbH}px;width:${prog}%;background:${OR};z-index:20"></div>`;
+  const wmS = sz('wm', 1, w);
+  const wm  = `<div style="position:absolute;bottom:${Math.round(h*.02)}px;right:${Math.round(w*.025)}px;font-size:${wmS}px;color:rgba(255,255,255,.22);letter-spacing:1px;z-index:20;font-family:'DM Sans';font-weight:700">@meshminds3d</div>`;
+  const ctS = sz('ct', 1, w);
+  const ct  = `<div style="position:absolute;bottom:${Math.round(h*.02)}px;left:${Math.round(w*.025)}px;font-size:${ctS}px;color:rgba(255,255,255,.18);letter-spacing:1px;z-index:20;font-family:'Bebas Neue'">${String(s.id+1).padStart(2,'0')} / ${SLIDES.length}</div>`;
+
+  let inner = '';
+
+  // ── HERO ──────────────────────────────────────
+  if (s.type === 'hero') {
+    const h1S  = sz('h1',  s.fs || 1, w);
+    const tagS = sz('tag', s.fs || 1, w);
+    const subS = sz('sub', s.fs || 1, w);
+    const maxW = Math.round(w * .86);
+    inner = `
+      <div style="position:absolute;inset:0;z-index:3;display:flex;flex-direction:column;justify-content:flex-end;padding:${PAD}px ${PAD}px ${Math.round(h*.1)}px;">
+        <div style="display:inline-block;background:${OR};color:#000;font-size:${tagS}px;font-weight:900;letter-spacing:2px;text-transform:uppercase;padding:${Math.round(tagS*.38)}px ${Math.round(tagS*.85)}px;border-radius:3px;width:fit-content;margin-bottom:${Math.round(h*.04)}px">${s.tag || '🔥 Make Money 3D Printing'}</div>
+        <div style="font-family:'Bebas Neue';font-size:${h1S}px;line-height:.92;color:#fff;letter-spacing:2px;max-width:${maxW}px;word-break:break-word;margin-bottom:${Math.round(h*.035)}px">${hl(s.headline || '', OR)}</div>
+        <div style="font-size:${subS}px;color:rgba(255,255,255,.75);line-height:1.38;font-weight:600;max-width:${maxW}px">${(s.subline || '').replace(/\n/g,'<br>')}</div>
+        <div style="display:flex;align-items:center;gap:${Math.round(w*.015)}px;margin-top:${Math.round(h*.04)}px;font-size:${Math.round(w*.023)}px;color:rgba(255,255,255,.32);letter-spacing:2px;text-transform:uppercase">
+          <span>SWIPE</span>
+          <div style="width:${Math.round(w*.022)}px;height:${Math.round(w*.022)}px;border-right:2px solid ${OR};border-top:2px solid ${OR};transform:rotate(45deg)"></div>
+        </div>
+      </div>`;
+  }
+
+  // ── CONTENT ───────────────────────────────────
+  else if (s.type === 'content') {
+    const h2S  = sz('h2',      s.fs || 1, w);
+    const eyeS = sz('eyebrow', s.fs || 1, w);
+    const bdS  = sz('body',    s.fs || 1, w);
+    const boxS = sz('box',     s.fs || 1, w);
+    const stS  = sz('stat',    s.fs || 1, w);
+    const stLS = sz('statSub', s.fs || 1, w);
+    const bnS  = Math.round(w * .42);
+    const bodyMaxW = s.stat ? Math.round(w * .52) : Math.round(w * .86);
+
+    inner = `
+      <div style="position:absolute;top:${Math.round(h*-.01)}px;right:${Math.round(w*.01)}px;font-family:'Bebas Neue';font-size:${bnS}px;color:rgba(255,255,255,.042);line-height:1;z-index:2">${String(s.id).padStart(2,'0')}</div>
+      <div style="position:absolute;inset:0;z-index:3;display:flex;flex-direction:column;justify-content:flex-end;padding:${PAD}px ${PAD}px ${Math.round(h*.1)}px;">
+        <div style="font-size:${eyeS}px;color:${OR};font-weight:800;letter-spacing:3px;text-transform:uppercase;margin-bottom:${Math.round(h*.025)}px">${s.eyebrow || ''}</div>
+        <div style="width:${Math.round(w*.12)}px;height:${Math.max(3,Math.round(w*.005))}px;background:${ac};border-radius:2px;margin-bottom:${Math.round(h*.03)}px"></div>
+        <div style="font-family:'Bebas Neue';font-size:${h2S}px;line-height:.93;color:#fff;letter-spacing:2px;max-width:${bodyMaxW}px;word-break:break-word;margin-bottom:${Math.round(h*.03)}px">${hl(s.headline || '', ac)}</div>
+        <div style="font-size:${bdS}px;color:rgba(255,255,255,.75);line-height:1.48;font-weight:500;max-width:${bodyMaxW}px;${s.tip?'margin-bottom:'+Math.round(h*.03)+'px':''}">${(s.body || '').replace(/\n/g,'<br>')}</div>
+        ${s.tip ? `<div style="background:rgba(255,255,255,.07);border-left:${Math.max(3,Math.round(w*.005))}px solid ${ac};padding:${Math.round(boxS*.5)}px ${Math.round(boxS*.75)}px;font-size:${boxS}px;color:rgba(255,255,255,.9);line-height:1.45;border-radius:0 4px 4px 0;font-weight:600;max-width:${Math.round(w*.86)}px">${s.tip}</div>` : ''}
+        ${s.stat ? `
+        <div style="position:absolute;top:${Math.round(h*.06)}px;right:${PAD}px;text-align:center;border:${Math.max(2,Math.round(w*.003))}px solid rgba(255,107,0,.35);border-radius:8px;padding:${Math.round(w*.03)}px ${Math.round(w*.04)}px;background:rgba(0,0,0,.4)">
+          <div style="font-family:'Bebas Neue';font-size:${stS}px;color:${ac};line-height:1">${s.stat}</div>
+          ${s.statLabel ? `<div style="font-size:${stLS}px;color:rgba(255,255,255,.55);font-weight:700;letter-spacing:1px;margin-top:${Math.round(w*.01)}px">${s.statLabel}</div>` : ''}
+        </div>` : ''}
+      </div>`;
+  }
+
+  // ── SUMMARY ───────────────────────────────────
+  else if (s.type === 'summary') {
+    const h2S = sz('h2',       s.fs || 1, w);
+    const liS = sz('listitem', s.fs || 1, w);
+    const dotW = Math.max(7, Math.round(liS * .28));
+    const gap  = Math.round(h * .028);
+    const items = (s.items || []).map(it =>
+      `<div style="display:flex;align-items:center;gap:${Math.round(w*.03)}px;font-size:${liS}px;color:rgba(255,255,255,.88);font-weight:600">
+        <div style="width:${dotW}px;height:${dotW}px;border-radius:50%;background:${OR};flex-shrink:0"></div>
+        <span>${it}</span>
+      </div>`
+    ).join('');
+    inner = `
+      <div style="position:absolute;inset:0;background:radial-gradient(ellipse at 50% 0%,rgba(255,107,0,.2) 0%,transparent 65%);z-index:2;pointer-events:none"></div>
+      <div style="position:absolute;inset:0;z-index:3;display:flex;flex-direction:column;justify-content:center;padding:${PAD}px;">
+        <div style="font-family:'Bebas Neue';font-size:${h2S}px;line-height:.93;color:#fff;letter-spacing:2px;margin-bottom:${Math.round(h*.05)}px">${hl(s.headline || 'THE *TAKEAWAY*', OR)}</div>
+        <div style="display:flex;flex-direction:column;gap:${gap}px">${items}</div>
+      </div>`;
+  }
+
+  // ── CTA ───────────────────────────────────────
+  else if (s.type === 'cta') {
+    const h1S = sz('h1',   s.fs || 1, w);
+    const bpS = sz('btnp', s.fs || 1, w);
+    const bsS = sz('btns', s.fs || 1, w);
+    inner = `
+      <div style="position:absolute;inset:0;background:linear-gradient(150deg,#111 0%,#1e0a00 50%,#111 100%);z-index:0"></div>
+      <div style="position:absolute;inset:0;background:radial-gradient(ellipse at 50% 50%,rgba(255,107,0,.28) 0%,transparent 65%);z-index:2;pointer-events:none"></div>
+      <div style="position:absolute;inset:0;z-index:3;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;padding:${PAD}px;gap:0">
+        <div style="font-size:${Math.round(w*.027)}px;letter-spacing:3px;color:rgba(255,255,255,.3);text-transform:uppercase;font-weight:700;margin-bottom:${Math.round(h*.035)}px">${s.eyebrow || "Don't forget this"}</div>
+        <div style="font-family:'Bebas Neue';font-size:${h1S}px;line-height:.9;color:#fff;margin-bottom:${Math.round(h*.055)}px">${hl(s.headline || 'SAVE THIS *POST* 💾', OR)}</div>
+        <div style="display:flex;flex-direction:column;gap:${Math.round(h*.022)}px;width:100%">
+          <div style="background:${OR};color:#000;padding:${Math.round(h*.03)}px ${Math.round(w*.04)}px;border-radius:5px;font-size:${bpS}px;font-weight:900;letter-spacing:1px">${s.cta1 || '💬 Comment for free files'}</div>
+          <div style="border:2px solid rgba(255,255,255,.15);color:rgba(255,255,255,.5);padding:${Math.round(h*.025)}px ${Math.round(w*.04)}px;border-radius:5px;font-size:${bsS}px;font-weight:600">${s.cta2 || '🔔 Follow @meshminds3d'}</div>
+        </div>
+        <div style="font-size:${Math.round(w*.024)}px;color:rgba(255,255,255,.22);letter-spacing:2px;margin-top:${Math.round(h*.045)}px">by <strong style="color:${OR}">@meshminds3d</strong></div>
+      </div>`;
+  }
+
+  return `<div style="width:${w}px;height:${h}px;position:relative;overflow:hidden;font-family:'DM Sans',sans-serif;background:#111;">
+    ${bg}${dots}${inner}${pb}${wm}${ct}
+  </div>`;
+}
+
+// Orange accent: wrap *word* → colored span
+function hl(text, color) {
+  return text
+    .replace(/\n/g, '<br>')
+    .replace(/\*([^*]+)\*/g, `<span style="color:${color}">$1</span>`);
+}
+
+// ═══════════════════════════════════════════════
+// AI CHAT
+// ═══════════════════════════════════════════════
+function setTopic(t) { document.getElementById('topicInput').value = t; }
+
+function addMsg(role, html, extra) {
+  const msgs = document.getElementById('msgs');
+  const now = new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+  const d = document.createElement('div');
+  d.className = `msg ${role}`;
+  d.innerHTML = `<div class="msg-bubble">${html}</div>${extra||''}<div class="msg-time">${now}</div>`;
+  msgs.appendChild(d);
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+function addTyping() {
+  const msgs = document.getElementById('msgs');
+  const d = document.createElement('div');
+  d.className = 'msg ai'; d.id = 'typ';
+  d.innerHTML = `<div class="typing"><span></span><span></span><span></span></div>`;
+  msgs.appendChild(d);
+  msgs.scrollTop = msgs.scrollHeight;
+}
+function removeTyping() { const t = document.getElementById('typ'); if(t) t.remove(); }
+
+const SYS = `You are a content strategist for @meshminds3d, an Instagram account with 85K followers about making money with 3D printing. Brand: bold, punchy, orange (#FF6B00), no fluff.
+
+Output ONLY a JSON object — no markdown, no backticks, no explanation. Structure:
+{
+  "slides": [
+    {
+      "type": "hero",
+      "tag": "badge text with emoji (max 5 words)",
+      "headline": "BIG HOOK IN CAPS\\nWrap *key word* in asterisks for orange",
+      "subline": "Supporting line max 12 words"
+    },
+    {
+      "type": "content",
+      "eyebrow": "STEP LABEL e.g. Product 01 / 05",
+      "headline": "TITLE IN CAPS\\n*ACCENT WORD*",
+      "body": "2-3 punchy sentences. Direct. No fluff.",
+      "tip": "💡 One actionable tip",
+      "stat": "number e.g. 3-5x (omit if no natural stat)",
+      "statLabel": "label e.g. profit margin (omit if no stat)",
+      "accent": "orange or yellow (alternate between content slides)"
+    },
+    ... more content slides ...,
+    {
+      "type": "summary",
+      "headline": "THE *TAKEAWAY*",
+      "items": ["Point one", "Point two", "Point three", "Point four", "Point five"]
+    },
+    {
+      "type": "cta",
+      "eyebrow": "Don't forget this",
+      "headline": "SAVE\\nTHIS *POST* 💾",
+      "cta1": "💬 Comment \\"WORD\\" for [freebie]",
+      "cta2": "🔔 Follow @meshminds3d for weekly 3D printing income"
+    }
+  ],
+  "caption": "Full Instagram caption with hook, 2-3 value lines, save CTA, comment trigger, follow CTA, and 15 relevant hashtags"
+}
+
+Rules: start=hero, end=cta, summary second-to-last. 5-9 slides total. Each content slide = ONE idea only. Output ONLY the JSON.`;
+
+async function sendMsg() {
+  const input = document.getElementById('topicInput');
+  const topic = input.value.trim();
+  if (!topic || isGenerating) return;
+
+  isGenerating = true;
+  document.getElementById('sendBtn').disabled = true;
+  document.getElementById('sendBtn').textContent = 'Generating…';
+
+  addMsg('user', topic);
+  input.value = '';
+  addTyping();
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 2500,
+        system: SYS,
+        messages: [{ role: 'user', content: `Create a carousel about: ${topic}` }]
+      })
+    });
+
+    const data = await res.json();
+    removeTyping();
+
+    if (data.error) {
+      addMsg('ai', `❌ API Error: ${data.error.message}`);
+      done(); return;
+    }
+
+    let plan;
+    try {
+      const raw = data.content[0].text.trim()
+        .replace(/^```json\s*/,'').replace(/^```\s*/,'').replace(/\s*```$/,'');
+      plan = JSON.parse(raw);
+    } catch(e) {
+      addMsg('ai', `⚠️ Couldn't parse response. Try a more specific topic.`);
+      done(); return;
+    }
+
+    SLIDES = (plan.slides || []).map((s, i) => ({ ...s, id: i, fs: 1.0 }));
+    caption = plan.caption || '';
+
+    if (!SLIDES.length) { addMsg('ai', '⚠️ No slides generated. Try again.'); done(); return; }
+
+    addMsg('ai',
+      `✅ <strong>${SLIDES.length} slides</strong> ready for "<em>${topic}</em>"`,
+      `<button class="apply-btn" onclick="applySlides()">Load into Editor →</button>`
+    );
+    document.getElementById('capBox').textContent = caption;
+    applySlides();
+
+  } catch(err) {
+    removeTyping();
+    addMsg('ai', `❌ Error: ${err.message}`);
+  }
+  done();
+}
+
+function done() {
+  isGenerating = false;
+  document.getElementById('sendBtn').disabled = false;
+  document.getElementById('sendBtn').textContent = 'Generate Slides ✨';
+}
+
+function applySlides() {
+  if (!SLIDES.length) return;
+  cur = 0;
+  calcSz();
+  buildThumbs();
+  buildDots();
+  buildEditor(SLIDES[cur]);
+  document.getElementById('nr').style.display = 'flex';
+  document.getElementById('tn').textContent = SLIDES.length;
+  document.getElementById('pb').disabled = true;
+  document.getElementById('nb2').disabled = SLIDES.length <= 1;
+  document.getElementById('expBtn').disabled = false;
+  refresh();
+}
+
+// ═══════════════════════════════════════════════
+// THUMBNAILS
+// ═══════════════════════════════════════════════
+function buildThumbs() {
+  const strip = document.getElementById('thumbStrip');
+  strip.innerHTML = '';
+  SLIDES.forEach((s, i) => {
+    const d = document.createElement('div');
+    d.className = 'th' + (i===cur?' on':'');
+    const lbl = (s.headline || s.type || '').split('\n')[0].slice(0,14);
+    d.innerHTML = `<div class="th-n">${String(i+1).padStart(2,'0')}</div><div class="th-ttl">${lbl}</div>`;
+    d.onclick = () => goTo(i);
+    strip.appendChild(d);
+  });
+}
+
+function buildDots() {
+  const dc = document.getElementById('dt');
+  dc.innerHTML = '';
+  SLIDES.forEach((_,i) => {
+    const d = document.createElement('div');
+    d.className = 'nd'+(i===cur?' on':'');
+    d.onclick = ()=>goTo(i);
+    dc.appendChild(d);
+  });
+}
+
+// ═══════════════════════════════════════════════
+// EDITOR
+// ═══════════════════════════════════════════════
+function buildEditor(s) {
+  document.getElementById('etl').textContent = (s.type||'—').toUpperCase();
+  const es = document.getElementById('es');
+
+  const fi = (lbl, key, val, ta, rows) => {
+    const v = String(val||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
+    if(ta) return `<div class="fld"><label>${lbl}</label><textarea rows="${rows||2}" oninput="updS(${cur},'${key}',this.value)">${v}</textarea></div>`;
+    return `<div class="fld"><label>${lbl}</label><input type="text" value="${v}" oninput="updS(${cur},'${key}',this.value)"></div>`;
+  };
+
+  let html = `
+    <div class="fld">
+      <label>Font Scale</label>
+      <div style="display:flex;align-items:center;gap:8px">
+        <input type="range" style="flex:1;accent-color:var(--or)" min="0.6" max="2.0" step="0.05"
+          value="${s.fs||1}"
+          oninput="updS(${cur},'fs',parseFloat(this.value));document.getElementById('fsv').textContent=Math.round(parseFloat(this.value)*100)+'%'">
+        <span id="fsv" style="font-size:11px;font-weight:700;color:var(--or);min-width:34px">${Math.round((s.fs||1)*100)}%</span>
+      </div>
+    </div>
+    <div class="divl">`;
+
+  if (s.type === 'hero') {
+    html += fi('Tag Badge', 'tag', s.tag);
+    html += fi('Headline  (*word* = orange)', 'headline', s.headline, true, 3);
+    html += fi('Subline', 'subline', s.subline, true, 2);
+  } else if (s.type === 'content') {
+    html += fi('Eyebrow', 'eyebrow', s.eyebrow);
+    html += fi('Headline (*word* = accent)', 'headline', s.headline, true, 2);
+    html += fi('Body', 'body', s.body, true, 3);
+    html += fi('Tip Box', 'tip', s.tip, true, 2);
+    html += fi('Stat Number', 'stat', s.stat);
+    html += fi('Stat Label', 'statLabel', s.statLabel);
+    html += `<div class="fld"><label>Accent Color</label>
+      <div style="display:flex;gap:8px;margin-top:2px">
+        <div style="width:22px;height:22px;border-radius:4px;background:#FF6B00;cursor:pointer;border:2.5px solid ${s.accent!=='yellow'?'#111':'transparent'};box-shadow:0 1px 3px rgba(0,0,0,.15)" onclick="updS(${cur},'accent','orange')"></div>
+        <div style="width:22px;height:22px;border-radius:4px;background:#FFD600;cursor:pointer;border:2.5px solid ${s.accent==='yellow'?'#111':'transparent'};box-shadow:0 1px 3px rgba(0,0,0,.15)" onclick="updS(${cur},'accent','yellow')"></div>
+      </div></div>`;
+  } else if (s.type === 'summary') {
+    html += fi('Headline', 'headline', s.headline);
+    (s.items||[]).forEach((it,ii) => {
+      html += `<div class="fld"><label>Point ${ii+1}</label><input type="text" value="${String(it).replace(/"/g,'&quot;')}" oninput="SLIDES[${cur}].items[${ii}]=this.value;refresh()"></div>`;
+    });
+  } else if (s.type === 'cta') {
+    html += fi('Eyebrow', 'eyebrow', s.eyebrow);
+    html += fi('Headline (*word* = orange)', 'headline', s.headline, true, 2);
+    html += fi('Primary Button', 'cta1', s.cta1);
+    html += fi('Secondary Button', 'cta2', s.cta2);
+  }
+
+  es.innerHTML = html;
+}
+
+function updS(i, k, v) { SLIDES[i][k] = v; refresh(); }
+
+// ═══════════════════════════════════════════════
+// NAVIGATION
+// ═══════════════════════════════════════════════
+function goTo(n) {
+  cur = n;
+  refresh();
+  buildDots();
+  buildEditor(SLIDES[cur]);
+  document.getElementById('cn').textContent = cur + 1;
+  document.getElementById('pb').disabled  = cur === 0;
+  document.getElementById('nb2').disabled = cur === SLIDES.length - 1;
+  document.querySelectorAll('.th').forEach((t,i) => t.classList.toggle('on', i===cur));
+  document.querySelectorAll('.th')[cur]?.scrollIntoView({block:'nearest', behavior:'smooth'});
+}
+function nav(d) { const n=cur+d; if(n>=0&&n<SLIDES.length) goTo(n); }
+function refresh() {
+  if (!SLIDES.length) return;
+  document.getElementById('slideEl').innerHTML = mkSlide(SLIDES[cur], SSZ, SSH());
+}
+
+// ═══════════════════════════════════════════════
+// CAPTION
+// ═══════════════════════════════════════════════
+function doCopy() {
+  navigator.clipboard.writeText(caption).then(() => {
+    const b = document.querySelector('.cpbtn');
+    const o = b.textContent;
+    b.textContent = '✓ Copied!'; b.style.color='var(--or)'; b.style.borderColor='var(--or)';
+    setTimeout(() => { b.textContent=o; b.style.color=''; b.style.borderColor=''; }, 2000);
+  });
+}
+
+// ═══════════════════════════════════════════════
+// EXPORT — 1080 × 1300 PNG per slide
+// ═══════════════════════════════════════════════
+async function doExp() {
+  if (!SLIDES.length) return;
+
+  document.getElementById('ot').textContent = 'Exporting…';
+  document.getElementById('od').textContent = `Rendering ${SLIDES.length} slides at ${EW}×${EH}px`;
+  document.getElementById('of').style.width = '0%';
+  document.getElementById('os').textContent = 'Preparing…';
+  document.getElementById('ov').classList.add('on');
+  await slp(80);
+
+  const zip = new JSZip();
+  const folder = zip.folder('meshminds_instagram_1080x1300');
+
+  // Save current preview size
+  const prevSSZ = SSZ;
+
+  // Render at full export resolution
+  SSZ = EW;
+
+  for (let i = 0; i < SLIDES.length; i++) {
+    document.getElementById('of').style.width = Math.round(i / SLIDES.length * 82) + '%';
+    document.getElementById('os').textContent = `Slide ${i+1} / ${SLIDES.length}`;
+
+    const off = document.createElement('div');
+    off.style.cssText = `position:fixed;left:-9999px;top:0;width:${EW}px;height:${EH}px;overflow:hidden;`;
+    off.innerHTML = mkSlide(SLIDES[i], EW, EH);
+    document.body.appendChild(off);
+    await slp(50);
+
+    try {
+      const canvas = await html2canvas(off.firstElementChild, {
+        width: EW, height: EH, scale: 1,
+        useCORS: true, allowTaint: true,
+        backgroundColor: '#111', logging: false
+      });
+      const blob = await new Promise(res => canvas.toBlob(res, 'image/png', 1.0));
+      folder.file(`slide_${String(i+1).padStart(2,'0')}_${SLIDES[i].type}.png`, blob);
+    } catch(e) { console.error('Export error slide', i, e); }
+
+    document.body.removeChild(off);
+    await slp(20);
+  }
+
+  // Restore preview size
+  SSZ = prevSSZ;
+
+  document.getElementById('of').style.width = '92%';
+  document.getElementById('os').textContent = 'Creating ZIP…';
+
+  const blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'meshminds_instagram_1080x1300.zip';
+  a.click();
+  URL.revokeObjectURL(url);
+
+  document.getElementById('of').style.width = '100%';
+  document.getElementById('os').textContent = `✓ Done! ${SLIDES.length} slides at 1080×1300.`;
+  setTimeout(() => document.getElementById('ov').classList.remove('on'), 2500);
+}
+
+function slp(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+// ═══════════════════════════════════════════════
+// KEYBOARD + RESIZE
+// ═══════════════════════════════════════════════
+document.addEventListener('keydown', e => {
+  if (e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA') return;
+  if (e.key==='ArrowRight') nav(1);
+  if (e.key==='ArrowLeft')  nav(-1);
+});
+document.getElementById('topicInput').addEventListener('keydown', e => {
+  if (e.key==='Enter' && !e.shiftKey) { e.preventDefault(); sendMsg(); }
+});
+document.getElementById('ov').addEventListener('click', e => {
+  if (e.target===e.currentTarget) e.currentTarget.classList.remove('on');
+});
+new ResizeObserver(() => { calcSz(); if(SLIDES.length) refresh(); })
+  .observe(document.getElementById('ctr'));
+
+calcSz();
+</script>
+</body>
+</html>
