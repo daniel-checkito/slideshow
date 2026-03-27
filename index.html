@@ -385,7 +385,7 @@ html,body{height:100%;overflow:hidden;font-family:'DM Sans',sans-serif;backgroun
 // ═══════════════════════════════════════════════════
 // CONFIG — your n8n webhook URL
 // ═══════════════════════════════════════════════════
-const N8N = 'https://your-n8n-instance.com/webhook/carousel-studio';
+const N8N = 'https://meshminds.app.n8n.cloud/webhook/carousel-studio';
 
 // Export dimensions
 const EW = 1080, EH = 1300, RATIO = EH / EW;
@@ -732,9 +732,9 @@ function normSlide(s, i) {
   const base = { id:i, fs:1.0, accent: i%2===0?'orange':'yellow' };
   if (s.type==='hero')    return {...base, imgPrompt:s.imgPrompt||'', type:'hero',    tag:s.eyebrow||s.tag||'🔥 Make Money 3D Printing', headline:s.headline||'', subline:s.subheadline||s.subline||''};
   if (s.type==='problem') return {...base, imgPrompt:s.imgPrompt||'', type:'content', accent:'orange', eyebrow:s.eyebrow||'THE PROBLEM', headline:s.headline||'', body:s.body||'', stat:s.stat||'', statLabel:s.statLabel||''};
-  if (s.type==='value')   return {...base, type:'content', eyebrow:s.eyebrow||'KEY INSIGHT', headline:s.headline||'', body:s.body||'', tip:s.tipBox||s.tip||'', stat:s.stat||'', statLabel:s.statLabel||''};
+  if (s.type==='value')   return {...base, imgPrompt:s.imgPrompt||'', type:'content', eyebrow:s.eyebrow||'KEY INSIGHT', headline:s.headline||'', body:s.body||'', tip:s.tipBox||s.tip||'', stat:s.stat||'', statLabel:s.statLabel||''};
   if (s.type==='summary') return {...base, imgPrompt:s.imgPrompt||'', type:'summary', headline:s.headline||'THE *TAKEAWAY*', items:s.listItems||s.items||[]};
-  if (s.type==='cta')     return {...base, type:'cta', eyebrow:"Don't forget this", headline:'SAVE THIS *POST* 💾', cta1:s.cta1||'💬 Comment for free files', cta2:s.cta2||'🔔 Follow @meshminds3d'};
+  if (s.type==='cta')     return {...base, imgPrompt:s.imgPrompt||'', type:'cta', eyebrow:"Don't forget this", headline:'SAVE THIS *POST* 💾', cta1:s.cta1||'💬 Comment for free files', cta2:s.cta2||'🔔 Follow @meshminds3d'};
   return {...base, ...s, imgPrompt: s.imgPrompt||''}; // passthrough
 }
 
