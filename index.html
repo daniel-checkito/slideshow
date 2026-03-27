@@ -846,69 +846,129 @@ function upd(i,k,v){SLIDES[i][k]=v;refresh();}
 // ═══════════════════════════════════════════════════
 // SLIDE RENDERER
 // ═══════════════════════════════════════════════════
-function ac(s){return s.accent==='yellow'?'#FFD600':'#FF6B00';}
+function ac(s){return '#FF6B00';}
 function hl(t,c){return String(t||'').replace(/\n/g,'<br>').replace(/\*([^*]+)\*/g,`<span style="color:${c}">$1</span>`);}
 
 function mkSlide(s,w,h){
-  const OR='#FF6B00',a=ac(s);
-  const prog=((s.id+1)/SLIDES.length*100).toFixed(0);
-  const pbH=Math.max(3,Math.round(w*.004)),PAD=Math.round(w*.08),dot=Math.round(w*.055);
-  const bg=s.bgImg
-    ?`<div style="position:absolute;inset:0;background:url('${s.bgImg}') center/cover;z-index:0"></div><div style="position:absolute;inset:0;background:linear-gradient(160deg,rgba(0,0,0,.83),rgba(0,0,0,.56));z-index:1"></div>`
-    :`<div style="position:absolute;inset:0;background:linear-gradient(145deg,#1a1a1a,#0d0d0d);z-index:0"></div>`;
-  const dots=`<div style="position:absolute;inset:0;background-image:radial-gradient(circle,rgba(255,255,255,.055) 1px,transparent 1px);background-size:${dot}px ${dot}px;z-index:2;pointer-events:none"></div>`;
-  const pb=`<div style="position:absolute;bottom:0;left:0;height:${pbH}px;width:${prog}%;background:${OR};z-index:20"></div>`;
-  const wm=`<div style="position:absolute;bottom:${Math.round(h*.02)}px;right:${Math.round(w*.025)}px;font-size:${sz('wm',1,w)}px;color:rgba(255,255,255,.22);letter-spacing:1px;z-index:20;font-family:'DM Sans';font-weight:700">@meshminds3d</div>`;
-  const ct=`<div style="position:absolute;bottom:${Math.round(h*.02)}px;left:${Math.round(w*.025)}px;font-size:${sz('ct',1,w)}px;color:rgba(255,255,255,.18);letter-spacing:1px;z-index:20;font-family:'Bebas Neue'">${String(s.id+1).padStart(2,'0')} / ${SLIDES.length}</div>`;
+  const OR='#FF6B00', BK='#111', WH='#fff';
+  const a = s.accent==='yellow'?'#FF6B00':'#FF6B00'; // always orange accent
+  const PAD = Math.round(w*.07);
+  const hasImg = !!s.bgImg;
+
+  // Background: white by default, photo with overlay if image uploaded
+  const bg = hasImg
+    ? `<div style="position:absolute;inset:0;background:url('${s.bgImg}') center/cover;z-index:0"></div>
+       <div style="position:absolute;inset:0;background:rgba(255,255,255,0.08);z-index:1"></div>`
+    : `<div style="position:absolute;inset:0;background:#fff;z-index:0"></div>`;
+
+  // Subtle bottom progress bar
+  const pbH = Math.max(3, Math.round(w*.004));
+  const prog = ((s.id+1)/SLIDES.length*100).toFixed(0);
+  const pb = `<div style="position:absolute;bottom:0;left:0;height:${pbH}px;width:${prog}%;background:${OR};z-index:20"></div>`;
+
+  // Watermark — subtle, bottom right
+  const wmS = sz('wm',1,w);
+  const wm = `<div style="position:absolute;bottom:${Math.round(h*.022)}px;right:${Math.round(w*.025)}px;font-size:${wmS}px;color:${hasImg?'rgba(255,255,255,.5)':'rgba(0,0,0,.18)'};letter-spacing:1px;z-index:20;font-family:'DM Sans';font-weight:800">@meshminds3d</div>`;
 
   let inner='';
+  const txtClr = hasImg ? '#fff' : BK;
+  const subClr = hasImg ? 'rgba(255,255,255,.85)' : '#333';
+  const mutedClr = hasImg ? 'rgba(255,255,255,.6)' : '#666';
+
+  // ── HERO ──────────────────────────────────────────────────
   if(s.type==='hero'){
-    const h1S=sz('h1',s.fs||1,w),tagS=sz('tag',s.fs||1,w),subS=sz('sub',s.fs||1,w),mW=Math.round(w*.86);
+    const h1S = sz('h1', s.fs||1, w);
+    const tagS = sz('tag', s.fs||1, w);
+    const subS = sz('sub', s.fs||1, w);
+    const mW = Math.round(w*.92);
+
     inner=`<div style="position:absolute;inset:0;z-index:3;display:flex;flex-direction:column;justify-content:flex-end;padding:${PAD}px ${PAD}px ${Math.round(h*.1)}px">
-      <div style="display:inline-block;background:${OR};color:#000;font-size:${tagS}px;font-weight:900;letter-spacing:2px;text-transform:uppercase;padding:${Math.round(tagS*.38)}px ${Math.round(tagS*.85)}px;border-radius:3px;width:fit-content;margin-bottom:${Math.round(h*.04)}px">${s.tag||'🔥 Make Money 3D Printing'}</div>
-      <div style="font-family:'Bebas Neue';font-size:${h1S}px;line-height:.92;color:#fff;letter-spacing:2px;max-width:${mW}px;word-break:break-word;margin-bottom:${Math.round(h*.035)}px">${hl(s.headline||'',OR)}</div>
-      <div style="font-size:${subS}px;color:rgba(255,255,255,.75);line-height:1.38;font-weight:600;max-width:${mW}px">${hl(s.subline||'',OR)}</div>
-      <div style="display:flex;align-items:center;gap:${Math.round(w*.015)}px;margin-top:${Math.round(h*.04)}px;font-size:${Math.round(w*.023)}px;color:rgba(255,255,255,.32);letter-spacing:2px;text-transform:uppercase">
-        <span>SWIPE</span><div style="width:${Math.round(w*.022)}px;height:${Math.round(w*.022)}px;border-right:2px solid ${OR};border-top:2px solid ${OR};transform:rotate(45deg)"></div>
-      </div></div>`;
-  } else if(s.type==='content'){
-    const h2S=sz('h2',s.fs||1,w),eyeS=sz('eyebrow',s.fs||1,w),bdS=sz('body',s.fs||1,w),boxS=sz('box',s.fs||1,w),stS=sz('stat',s.fs||1,w),stLS=sz('statSub',s.fs||1,w);
-    const bnS=Math.round(w*.42),mW=s.stat?Math.round(w*.52):Math.round(w*.86);
-    inner=`<div style="position:absolute;top:${Math.round(h*-.01)}px;right:${Math.round(w*.01)}px;font-family:'Bebas Neue';font-size:${bnS}px;color:rgba(255,255,255,.042);line-height:1;z-index:2">${String(s.id).padStart(2,'0')}</div>
+      <div style="display:inline-flex;align-items:center;gap:6px;margin-bottom:${Math.round(h*.03)}px">
+        <div style="background:${OR};color:#fff;font-size:${tagS}px;font-weight:900;letter-spacing:2px;text-transform:uppercase;padding:${Math.round(tagS*.35)}px ${Math.round(tagS*.8)}px;border-radius:100px;display:inline-block">${s.tag||'🔥 Make Money 3D Printing'}</div>
+      </div>
+      <div style="font-family:'Bebas Neue';font-size:${h1S}px;line-height:.9;color:${txtClr};letter-spacing:1px;max-width:${mW}px;word-break:break-word;margin-bottom:${Math.round(h*.025)}px">${hlLight(s.headline||'',OR,hasImg)}</div>
+      <div style="font-size:${subS}px;color:${subClr};line-height:1.4;font-weight:600;max-width:${mW}px">${(s.subline||'').replace(/
+/g,'<br>')}</div>
+      <div style="display:flex;align-items:center;gap:${Math.round(w*.012)}px;margin-top:${Math.round(h*.035)}px;font-size:${Math.round(w*.022)}px;color:${mutedClr};letter-spacing:2px;text-transform:uppercase;font-weight:700">
+        <span>SWIPE</span>
+        <div style="width:${Math.round(w*.02)}px;height:${Math.round(w*.02)}px;border-right:2.5px solid ${OR};border-top:2.5px solid ${OR};transform:rotate(45deg)"></div>
+      </div>
+    </div>`;
+  }
+
+  // ── CONTENT (problem / value) ─────────────────────────────
+  else if(s.type==='content'){
+    const h2S = sz('h2', s.fs||1, w);
+    const eyeS = sz('eyebrow', s.fs||1, w);
+    const bdS = sz('body', s.fs||1, w);
+    const boxS = sz('box', s.fs||1, w);
+    const stS = sz('stat', s.fs||1, w);
+    const stLS = sz('statSub', s.fs||1, w);
+    const mW = s.stat ? Math.round(w*.54) : Math.round(w*.9);
+
+    // big ghost number background
+    const bnS = Math.round(w*.55);
+
+    inner=`
+      ${!hasImg ? `<div style="position:absolute;bottom:${Math.round(h*-.04)}px;right:${Math.round(w*-.02)}px;font-family:'Bebas Neue';font-size:${bnS}px;color:rgba(0,0,0,.04);line-height:1;z-index:1;user-select:none">${String(s.id).padStart(2,'0')}</div>` : ''}
       <div style="position:absolute;inset:0;z-index:3;display:flex;flex-direction:column;justify-content:flex-end;padding:${PAD}px ${PAD}px ${Math.round(h*.1)}px">
-        <div style="font-size:${eyeS}px;color:${OR};font-weight:800;letter-spacing:3px;text-transform:uppercase;margin-bottom:${Math.round(h*.025)}px">${s.eyebrow||''}</div>
-        <div style="width:${Math.round(w*.12)}px;height:${Math.max(3,Math.round(w*.005))}px;background:${a};border-radius:2px;margin-bottom:${Math.round(h*.03)}px"></div>
-        <div style="font-family:'Bebas Neue';font-size:${h2S}px;line-height:.93;color:#fff;letter-spacing:2px;max-width:${mW}px;word-break:break-word;margin-bottom:${Math.round(h*.03)}px">${hl(s.headline||'',a)}</div>
-        <div style="font-size:${bdS}px;color:rgba(255,255,255,.75);line-height:1.48;font-weight:500;max-width:${mW}px;${s.tip?'margin-bottom:'+Math.round(h*.03)+'px':''}">${hl(s.body||'',a)}</div>
-        ${s.tip?`<div style="background:rgba(255,255,255,.07);border-left:${Math.max(3,Math.round(w*.005))}px solid ${a};padding:${Math.round(boxS*.5)}px ${Math.round(boxS*.75)}px;font-size:${boxS}px;color:rgba(255,255,255,.9);line-height:1.45;border-radius:0 4px 4px 0;font-weight:600;max-width:${Math.round(w*.86)}px">${s.tip}</div>`:''}
-        ${s.stat?`<div style="position:absolute;top:${Math.round(h*.06)}px;right:${PAD}px;text-align:center;border:${Math.max(2,Math.round(w*.003))}px solid rgba(255,107,0,.35);border-radius:8px;padding:${Math.round(w*.03)}px ${Math.round(w*.04)}px;background:rgba(0,0,0,.4)">
-          <div style="font-family:'Bebas Neue';font-size:${stS}px;color:${a};line-height:1">${s.stat}</div>
-          ${s.statLabel?`<div style="font-size:${stLS}px;color:rgba(255,255,255,.55);font-weight:700;letter-spacing:1px;margin-top:${Math.round(w*.01)}px">${s.statLabel}</div>`:''}
+        <div style="font-size:${eyeS}px;color:${OR};font-weight:900;letter-spacing:3px;text-transform:uppercase;margin-bottom:${Math.round(h*.02)}px">${s.eyebrow||''}</div>
+        <div style="width:${Math.round(w*.1)}px;height:${Math.max(3,Math.round(w*.005))}px;background:${OR};border-radius:2px;margin-bottom:${Math.round(h*.025)}px"></div>
+        <div style="font-family:'Bebas Neue';font-size:${h2S}px;line-height:.91;color:${txtClr};letter-spacing:1px;max-width:${mW}px;word-break:break-word;margin-bottom:${Math.round(h*.025)}px">${hlLight(s.headline||'',OR,hasImg)}</div>
+        <div style="font-size:${bdS}px;color:${subClr};line-height:1.5;font-weight:500;max-width:${mW}px;${s.tip?'margin-bottom:'+Math.round(h*.025)+'px':''}">${(s.body||'').replace(/
+/g,'<br>')}</div>
+        ${s.tip?`<div style="border-left:${Math.max(3,Math.round(w*.005))}px solid ${OR};padding:${Math.round(boxS*.4)}px ${Math.round(boxS*.7)}px;font-size:${boxS}px;color:${subClr};line-height:1.45;font-weight:700;background:${hasImg?'rgba(255,255,255,.12)':'rgba(255,107,0,.06)'};border-radius:0 5px 5px 0;max-width:${Math.round(w*.88)}px">${s.tip}</div>`:''}
+        ${s.stat?`<div style="position:absolute;top:${PAD}px;right:${PAD}px;text-align:center;border:3px solid ${OR};border-radius:10px;padding:${Math.round(w*.03)}px ${Math.round(w*.04)}px;background:${hasImg?'rgba(0,0,0,.25)':'rgba(255,107,0,.06)'}">
+          <div style="font-family:'Bebas Neue';font-size:${stS}px;color:${OR};line-height:1">${s.stat}</div>
+          ${s.statLabel?`<div style="font-size:${stLS}px;color:${mutedClr};font-weight:700;letter-spacing:1px;margin-top:4px">${s.statLabel}</div>`:''}
         </div>`:''}
       </div>`;
-  } else if(s.type==='summary'){
-    const h2S=sz('h2',s.fs||1,w),liS=sz('listitem',s.fs||1,w),dotW=Math.max(7,Math.round(liS*.28)),gap=Math.round(h*.028);
-    const items=(s.items||[]).map(it=>`<div style="display:flex;align-items:center;gap:${Math.round(w*.03)}px;font-size:${liS}px;color:rgba(255,255,255,.88);font-weight:600"><div style="width:${dotW}px;height:${dotW}px;border-radius:50%;background:${OR};flex-shrink:0"></div><span>${it}</span></div>`).join('');
-    inner=`<div style="position:absolute;inset:0;background:radial-gradient(ellipse at 50% 0%,rgba(255,107,0,.2) 0%,transparent 65%);z-index:2;pointer-events:none"></div>
-      <div style="position:absolute;inset:0;z-index:3;display:flex;flex-direction:column;justify-content:center;padding:${PAD}px">
-        <div style="font-family:'Bebas Neue';font-size:${h2S}px;line-height:.93;color:#fff;letter-spacing:2px;margin-bottom:${Math.round(h*.05)}px">${hl(s.headline||'THE *TAKEAWAY*',OR)}</div>
-        <div style="display:flex;flex-direction:column;gap:${gap}px">${items}</div>
-      </div>`;
-  } else if(s.type==='cta'){
-    const h1S=sz('h1',s.fs||1,w),bpS=sz('btnp',s.fs||1,w),bsS=sz('btns',s.fs||1,w);
-    inner=`<div style="position:absolute;inset:0;background:linear-gradient(150deg,#111 0%,#1e0a00 50%,#111 100%);z-index:0"></div>
-      <div style="position:absolute;inset:0;background:radial-gradient(ellipse at 50% 50%,rgba(255,107,0,.28) 0%,transparent 65%);z-index:2;pointer-events:none"></div>
-      <div style="position:absolute;inset:0;z-index:3;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;padding:${PAD}px">
-        <div style="font-size:${Math.round(w*.027)}px;letter-spacing:3px;color:rgba(255,255,255,.3);text-transform:uppercase;font-weight:700;margin-bottom:${Math.round(h*.035)}px">${s.eyebrow||"Don't forget this"}</div>
-        <div style="font-family:'Bebas Neue';font-size:${h1S}px;line-height:.9;color:#fff;margin-bottom:${Math.round(h*.055)}px">${hl(s.headline||'SAVE THIS *POST* 💾',OR)}</div>
-        <div style="display:flex;flex-direction:column;gap:${Math.round(h*.022)}px;width:100%">
-          <div style="background:${OR};color:#000;padding:${Math.round(h*.03)}px ${Math.round(w*.04)}px;border-radius:5px;font-size:${bpS}px;font-weight:900;letter-spacing:1px">${s.cta1||'💬 Comment for free files'}</div>
-          <div style="border:2px solid rgba(255,255,255,.15);color:rgba(255,255,255,.5);padding:${Math.round(h*.025)}px ${Math.round(w*.04)}px;border-radius:5px;font-size:${bsS}px;font-weight:600">${s.cta2||'🔔 Follow @meshminds3d'}</div>
-        </div>
-        <div style="font-size:${Math.round(w*.024)}px;color:rgba(255,255,255,.22);letter-spacing:2px;margin-top:${Math.round(h*.045)}px">by <strong style="color:${OR}">@meshminds3d</strong></div>
-      </div>`;
   }
-  return `<div style="width:${w}px;height:${h}px;position:relative;overflow:hidden;font-family:'DM Sans',sans-serif;background:#111">${bg}${dots}${inner}${pb}${wm}${ct}</div>`;
+
+  // ── SUMMARY ───────────────────────────────────────────────
+  else if(s.type==='summary'){
+    const h2S = sz('h2', s.fs||1, w);
+    const liS = sz('listitem', s.fs||1, w);
+    const gap = Math.round(h*.026);
+    const dotW = Math.max(8, Math.round(liS*.28));
+    const items=(s.items||[]).map((it,ii)=>`
+      <div style="display:flex;align-items:center;gap:${Math.round(w*.03)}px;font-size:${liS}px;color:${txtClr};font-weight:700;padding:${Math.round(h*.012)}px 0;border-bottom:1px solid ${hasImg?'rgba(255,255,255,.15)':'rgba(0,0,0,.07)'}">
+        <div style="width:${dotW}px;height:${dotW}px;border-radius:50%;background:${OR};flex-shrink:0"></div>
+        <span>${it}</span>
+      </div>`).join('');
+
+    inner=`<div style="position:absolute;inset:0;z-index:3;display:flex;flex-direction:column;justify-content:center;padding:${PAD}px">
+      <div style="display:inline-block;background:${OR};color:#fff;font-size:${sz('tag',s.fs||1,w)}px;font-weight:900;letter-spacing:2px;text-transform:uppercase;padding:${Math.round(sz('tag',s.fs||1,w)*.35)}px ${Math.round(sz('tag',s.fs||1,w)*.8)}px;border-radius:100px;margin-bottom:${Math.round(h*.03)}px">${(s.headline||'THE TAKEAWAY').replace(/\*([^*]+)\*/g,'$1')}</div>
+      <div style="display:flex;flex-direction:column">${items}</div>
+    </div>`;
+  }
+
+  // ── CTA ───────────────────────────────────────────────────
+  else if(s.type==='cta'){
+    const h1S = sz('h1', s.fs||1, w);
+    const bpS = sz('btnp', s.fs||1, w);
+    const bsS = sz('btns', s.fs||1, w);
+    const eyeS = sz('eyebrow', s.fs||1, w);
+
+    inner=`<div style="position:absolute;inset:0;z-index:3;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;padding:${PAD}px">
+      <div style="font-size:${eyeS}px;color:${OR};font-weight:900;letter-spacing:3px;text-transform:uppercase;margin-bottom:${Math.round(h*.025)}px">${s.eyebrow||"Don't forget this"}</div>
+      <div style="font-family:'Bebas Neue';font-size:${h1S}px;line-height:.88;color:${txtClr};letter-spacing:1px;margin-bottom:${Math.round(h*.05)}px">${hlLight(s.headline||'SAVE THIS POST',OR,hasImg)}</div>
+      <div style="display:flex;flex-direction:column;gap:${Math.round(h*.018)}px;width:100%">
+        <div style="background:${OR};color:#fff;padding:${Math.round(h*.028)}px ${Math.round(w*.04)}px;border-radius:100px;font-size:${bpS}px;font-weight:900;letter-spacing:.5px">${s.cta1||'💬 Comment for free files'}</div>
+        <div style="border:2.5px solid ${hasImg?'rgba(255,255,255,.4)':'rgba(0,0,0,.15)'};color:${subClr};padding:${Math.round(h*.024)}px ${Math.round(w*.04)}px;border-radius:100px;font-size:${bsS}px;font-weight:700">${s.cta2||'🔔 Follow @meshminds3d'}</div>
+      </div>
+      <div style="font-size:${Math.round(w*.022)}px;color:${mutedClr};letter-spacing:1px;margin-top:${Math.round(h*.04)}px;font-weight:700">@meshminds3d</div>
+    </div>`;
+  }
+
+  return `<div style="width:${w}px;height:${h}px;position:relative;overflow:hidden;font-family:'DM Sans',sans-serif;background:#fff">${bg}${inner}${pb}${wm}</div>`;
+}
+
+// hlLight: orange on specific words, respects image overlay
+function hlLight(text, or, onImg) {
+  const col = or;
+  return String(text||'').replace(/
+/g,'<br>').replace(/\*([^*]+)\*/g, `<span style="color:${col}">$1</span>`);
 }
 
 // ═══════════════════════════════════════════════════
