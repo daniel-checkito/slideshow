@@ -775,7 +775,7 @@ function normSlide(s, i) {
   if (s.type==='problem') return {...base, imgPrompt:s.imgPrompt||'', type:'content', accent:'orange', eyebrow:s.eyebrow||'THE PROBLEM', headline:s.headline||'', body:s.body||'', stat:s.stat||'', statLabel:s.statLabel||''};
   if (s.type==='value')   return {...base, imgPrompt:s.imgPrompt||'', type:'content', eyebrow:s.eyebrow||'KEY INSIGHT', headline:s.headline||'', body:s.body||'', tip:s.tipBox||s.tip||'', stat:s.stat||'', statLabel:s.statLabel||''};
   if (s.type==='summary') return {...base, imgPrompt:s.imgPrompt||'', type:'summary', headline:s.headline||'THE *TAKEAWAY*', items:s.listItems||s.items||[]};
-  if (s.type==='cta')     return {...base, imgPrompt:s.imgPrompt||'', type:'cta', eyebrow:"Don't forget this", headline:'SAVE THIS *POST* 💾', cta1:s.cta1||'💬 Comment for free files', cta2:s.cta2||'🔔 Follow @meshminds3d'};
+  if (s.type==='cta')     return {...base, imgPrompt:s.imgPrompt||'', type:'cta', headline:s.headline||'SAVE THIS', cta1:s.cta1||'📌 Save this — you\'ll want this later', cta2:s.cta2||'🔔 Follow @meshminds3d'};
   if (s.type==='comparison') return {...base, imgPrompt:s.imgPrompt||'', type:'comparison',
     eyebrow:s.eyebrow||'THE DIFFERENCE', headline:s.headline||'',
     left_label:s.left_label||'BEFORE', left_value:s.left_value||'',  left_sub:s.left_sub||'',
@@ -851,6 +851,7 @@ function buildEditor(s) {
 
   if(s.type==='hero'){
     h+=fi('Headline (*word* = orange)','headline',s.headline,true,3);
+    h+=fi('Subline (optional)','subline',s.subline,true,2);
   } else if(s.type==='content'){
     h+=fi('Eyebrow','eyebrow',s.eyebrow);
     h+=fi('Headline (*word* = accent)','headline',s.headline,true,2);
@@ -866,7 +867,6 @@ function buildEditor(s) {
     h+=fi('Headline','headline',s.headline);
     (s.items||[]).forEach((it,ii)=>{ h+=`<div class="fld"><label>Point ${ii+1}</label><input type="text" value="${String(it).replace(/"/g,'&quot;')}" oninput="SLIDES[${cur}].items[${ii}]=this.value;refresh()"></div>`; });
   } else if(s.type==='cta'){
-    h+=fi('Eyebrow','eyebrow',s.eyebrow);
     h+=fi('Headline (*word* = orange)','headline',s.headline,true,2);
     h+=fi('Primary Button','cta1',s.cta1);
     h+=fi('Secondary Button','cta2',s.cta2);
@@ -935,9 +935,10 @@ function mkSlide(s,w,h){
 
   let inner='';
   if(s.type==='hero'){
-    const h1S=sz('h1',s.fs||1,w),mW=Math.round(w*.9);
+    const h1S=sz('h1',s.fs||1,w),subS=sz('sub',s.fs||1,w)*.85,mW=Math.round(w*.9);
     inner=`<div ${_dg('hero',EXP)} style="position:absolute;inset:0;z-index:3;display:flex;flex-direction:column;justify-content:flex-end;padding:${PAD}px ${PAD}px ${Math.round(h*.09)}px;${_os(s,'hero',w)}">
-      <div ${_ce('headline',EXP)} style="font-family:'Bebas Neue';font-size:${h1S}px;line-height:.9;color:#fff;letter-spacing:2px;max-width:${mW}px;word-break:break-word;margin-bottom:${Math.round(h*.038)}px">${hl(s.headline||'',OR)}</div>
+      <div ${_ce('headline',EXP)} style="font-family:'Bebas Neue';font-size:${h1S}px;line-height:.9;color:#fff;letter-spacing:2px;max-width:${mW}px;word-break:break-word;margin-bottom:${Math.round(h*.025)}px">${hl(s.headline||'',OR)}</div>
+      ${s.subline?`<div ${_ce('subline',EXP)} style="font-size:${subS}px;color:rgba(255,255,255,.7);line-height:1.45;font-weight:600;max-width:${mW}px;margin-bottom:${Math.round(h*.03)}px">${s.subline}</div>`:''}
       <div style="display:flex;align-items:center;gap:${Math.round(w*.015)}px;font-size:${Math.round(w*.023)}px;color:rgba(255,255,255,.4);letter-spacing:2px;text-transform:uppercase;pointer-events:none">
         <span>SWIPE</span><div style="width:${Math.round(w*.022)}px;height:${Math.round(w*.022)}px;border-right:2px solid ${OR};border-top:2px solid ${OR};transform:rotate(45deg)"></div>
       </div></div>`;
@@ -957,25 +958,29 @@ function mkSlide(s,w,h){
         </div>`:''}
       </div>`;
   } else if(s.type==='summary'){
-    const h2S=sz('h2',s.fs||1,w),liS=sz('listitem',s.fs||1,w),dotW=Math.max(7,Math.round(liS*.28)),gap=Math.round(h*.028);
-    const items=(s.items||[]).map((it,ii)=>`<div style="display:flex;align-items:center;gap:${Math.round(w*.03)}px;font-size:${liS}px;color:rgba(255,255,255,.88);font-weight:600"><div style="width:${dotW}px;height:${dotW}px;border-radius:50%;background:${OR};flex-shrink:0"></div><span ${_ce('items.'+ii,EXP)}>${it}</span></div>`).join('');
-    inner=`<div style="position:absolute;inset:0;background:radial-gradient(ellipse at 50% 0%,rgba(255,107,0,.2) 0%,transparent 65%);z-index:2;pointer-events:none"></div>
+    const h2S=sz('h2',s.fs||1,w),liS=Math.round(sz('listitem',s.fs||1,w)*1.1),gap=Math.round(h*.022);
+    const items=(s.items||[]).map((it,ii)=>`
+      <div style="display:flex;align-items:stretch;gap:${Math.round(w*.03)}px;padding:${Math.round(h*.01)}px 0">
+        <div style="width:3px;background:${OR};border-radius:2px;flex-shrink:0;opacity:.85"></div>
+        <span ${_ce('items.'+ii,EXP)} style="font-size:${liS}px;color:rgba(255,255,255,.9);font-weight:600;line-height:1.45;flex:1">${it}</span>
+      </div>`).join('');
+    inner=`<div style="position:absolute;inset:0;background:radial-gradient(ellipse at 50% 0%,rgba(255,107,0,.15) 0%,transparent 60%);z-index:2;pointer-events:none"></div>
       <div ${_dg('summary',EXP)} style="position:absolute;inset:0;z-index:3;display:flex;flex-direction:column;justify-content:center;padding:${PAD}px;${_os(s,'summary',w)}">
-        <div style="font-family:'Bebas Neue';font-size:${h2S}px;line-height:.93;color:#fff;letter-spacing:2px;margin-bottom:${Math.round(h*.05)}px" ${_ce('headline',EXP)}>${hl(s.headline||'THE *TAKEAWAY*',OR)}</div>
+        <div style="font-family:'Bebas Neue';font-size:${h2S}px;line-height:.93;color:#fff;letter-spacing:2px;margin-bottom:${Math.round(h*.04)}px" ${_ce('headline',EXP)}>${hl(s.headline||'THE *TAKEAWAY*',OR)}</div>
         <div style="display:flex;flex-direction:column;gap:${gap}px">${items}</div>
       </div>`;
   } else if(s.type==='cta'){
     const h1S=sz('h1',s.fs||1,w),bpS=sz('btnp',s.fs||1,w),bsS=sz('btns',s.fs||1,w);
+    const off1=offStyle ? offStyle(s,'cta',w) : (_os ? _os(s,'cta',w) : '');
     inner=`<div style="position:absolute;inset:0;background:linear-gradient(150deg,#111 0%,#1e0a00 50%,#111 100%);z-index:0"></div>
-      <div style="position:absolute;inset:0;background:radial-gradient(ellipse at 50% 50%,rgba(255,107,0,.28) 0%,transparent 65%);z-index:2;pointer-events:none"></div>
+      <div style="position:absolute;inset:0;background:radial-gradient(ellipse at 50% 50%,rgba(255,107,0,.25) 0%,transparent 65%);z-index:2;pointer-events:none"></div>
       <div ${_dg('cta',EXP)} style="position:absolute;inset:0;z-index:3;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;padding:${PAD}px;${_os(s,'cta',w)}">
-        <div style="font-size:${Math.round(w*.027)}px;letter-spacing:3px;color:rgba(255,255,255,.3);text-transform:uppercase;font-weight:700;margin-bottom:${Math.round(h*.035)}px" ${_ce('eyebrow',EXP)}>${s.eyebrow||"Don't forget this"}</div>
-        <div style="font-family:'Bebas Neue';font-size:${h1S}px;line-height:.9;color:#fff;margin-bottom:${Math.round(h*.055)}px" ${_ce('headline',EXP)}>${hl(s.headline||'SAVE THIS *POST* 💾',OR)}</div>
+        <div ${_ce('headline',EXP)} style="font-family:'Bebas Neue';font-size:${h1S}px;line-height:.9;color:#fff;margin-bottom:${Math.round(h*.055)}px">${hl(s.headline||'SAVE THIS',OR)}</div>
         <div style="display:flex;flex-direction:column;gap:${Math.round(h*.022)}px;width:100%">
-          <div style="background:${OR};color:#000;padding:${Math.round(h*.03)}px ${Math.round(w*.04)}px;border-radius:5px;font-size:${bpS}px;font-weight:900;letter-spacing:1px" ${_ce('cta1',EXP)}>${s.cta1||'💬 Comment for free files'}</div>
-          <div style="border:2px solid rgba(255,255,255,.15);color:rgba(255,255,255,.5);padding:${Math.round(h*.025)}px ${Math.round(w*.04)}px;border-radius:5px;font-size:${bsS}px;font-weight:600" ${_ce('cta2',EXP)}>${s.cta2||'🔔 Follow @meshminds3d'}</div>
+          <div ${_ce('cta1',EXP)} style="background:${OR};color:#000;padding:${Math.round(h*.03)}px ${Math.round(w*.04)}px;border-radius:5px;font-size:${bpS}px;font-weight:900;letter-spacing:1px">${s.cta1||'📌 Save this — you\'ll want this later'}</div>
+          <div ${_ce('cta2',EXP)} style="border:2px solid rgba(255,255,255,.15);color:rgba(255,255,255,.5);padding:${Math.round(h*.025)}px ${Math.round(w*.04)}px;border-radius:5px;font-size:${bsS}px;font-weight:600">${s.cta2||'🔔 Follow @meshminds3d'}</div>
         </div>
-        <div style="font-size:${Math.round(w*.024)}px;color:rgba(255,255,255,.22);letter-spacing:2px;margin-top:${Math.round(h*.045)}px">by <strong style="color:${OR}">@meshminds3d</strong></div>
+        <div style="font-size:${Math.round(w*.024)}px;color:rgba(255,255,255,.22);letter-spacing:2px;margin-top:${Math.round(h*.045)}px;pointer-events:none">by <strong style="color:${OR}">@meshminds3d</strong></div>
       </div>`;
   }
 
