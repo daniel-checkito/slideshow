@@ -713,11 +713,21 @@ function imgSection(i) {
   const s = SLIDES[i];
   const hasImg = !!s.bgImg;
   const prompt = s.imgPrompt || '';
+  const noImage = (prompt.toLowerCase() === 'none' || prompt === '');
   const safePrompt = prompt.replace(/`/g, "'");
+  if (noImage && !hasImg) {
+    return `<div class="esec">Background Image</div>
+      <div class="img-upload-sec" style="opacity:.5">
+        <div class="img-prompt"><strong>Text-only slide</strong>No image — dark background</div>
+        <div class="img-upload-btn" onclick="document.getElementById('imgInput${i}').click()" style="opacity:.7">📁 Override with image</div>
+      </div>
+      <input type="file" id="imgInput${i}" accept="image/*" style="display:none" onchange="loadImg(${i},this)">
+      <div class="divl"></div>`;
+  }
   return `<div class="esec">Background Image</div>
     <div class="img-upload-sec" onclick="document.getElementById('imgInput${i}').click()">
       <div class="img-prompt"><strong>AI Prompt — copy to Nanabana</strong>${prompt||'No prompt generated'}</div>
-      ${prompt ? `<button class="copy-prompt-btn" id="cpbtn${i}" onclick="event.stopPropagation();copyPrompt(${i})">📋 Copy prompt</button>` : ''}
+      ${prompt && prompt.toLowerCase()!=='none' ? `<button class="copy-prompt-btn" id="cpbtn${i}" onclick="event.stopPropagation();copyPrompt(${i})">📋 Copy prompt</button>` : ''}
       ${hasImg
         ? `<img class="img-preview" src="${s.bgImg||''}" onclick="event.stopPropagation();document.getElementById('imgInput${i}').click()">
            <div class="img-clear" onclick="event.stopPropagation();clearImg(${i})">✕ Remove image</div>`
@@ -840,9 +850,7 @@ function buildEditor(s) {
     <div class="divl"></div><div class="esec">Content</div>`;
 
   if(s.type==='hero'){
-    h+=fi('Tag Badge','tag',s.tag);
     h+=fi('Headline (*word* = orange)','headline',s.headline,true,3);
-    h+=fi('Subline','subline',s.subline,true,2);
   } else if(s.type==='content'){
     h+=fi('Eyebrow','eyebrow',s.eyebrow);
     h+=fi('Headline (*word* = accent)','headline',s.headline,true,2);
@@ -918,7 +926,7 @@ function mkSlide(s,w,h){
   const prog=((s.id+1)/SLIDES.length*100).toFixed(0);
   const pbH=Math.max(3,Math.round(w*.004)),PAD=Math.round(w*.08),dot=Math.round(w*.055);
   const bg=s.bgImg
-    ?`<div style="position:absolute;inset:0;background:url('${s.bgImg}') center/cover;z-index:0"></div><div style="position:absolute;inset:0;background:linear-gradient(160deg,rgba(0,0,0,.83),rgba(0,0,0,.56));z-index:1"></div>`
+    ?`<div style="position:absolute;inset:0;background:url('${s.bgImg}') center/cover;z-index:0"></div><div style="position:absolute;inset:0;background:linear-gradient(to bottom,rgba(0,0,0,.08) 0%,rgba(0,0,0,.15) 30%,rgba(0,0,0,.65) 62%,rgba(0,0,0,.92) 82%,#111 100%);z-index:1"></div>`
     :`<div style="position:absolute;inset:0;background:linear-gradient(145deg,#1a1a1a,#0d0d0d);z-index:0"></div>`;
   const dots=`<div style="position:absolute;inset:0;background-image:radial-gradient(circle,rgba(255,255,255,.055) 1px,transparent 1px);background-size:${dot}px ${dot}px;z-index:2;pointer-events:none"></div>`;
   const pb=`<div style="position:absolute;bottom:0;left:0;height:${pbH}px;width:${prog}%;background:${OR};z-index:20"></div>`;
@@ -927,12 +935,10 @@ function mkSlide(s,w,h){
 
   let inner='';
   if(s.type==='hero'){
-    const h1S=sz('h1',s.fs||1,w),tagS=sz('tag',s.fs||1,w),subS=sz('sub',s.fs||1,w),mW=Math.round(w*.86);
-    inner=`<div ${_dg('hero',EXP)} style="position:absolute;inset:0;z-index:3;display:flex;flex-direction:column;justify-content:flex-end;padding:${PAD}px ${PAD}px ${Math.round(h*.1)}px;${_os(s,'hero',w)}">
-      <div style="display:inline-block;background:${OR};color:#000;font-size:${tagS}px;font-weight:900;letter-spacing:2px;text-transform:uppercase;padding:${Math.round(tagS*.38)}px ${Math.round(tagS*.85)}px;border-radius:3px;width:fit-content;margin-bottom:${Math.round(h*.04)}px" ${_ce('tag',EXP)}>${s.tag||'🔥 Make Money 3D Printing'}</div>
-      <div style="font-family:'Bebas Neue';font-size:${h1S}px;line-height:.92;color:#fff;letter-spacing:2px;max-width:${mW}px;word-break:break-word;margin-bottom:${Math.round(h*.035)}px" ${_ce('headline',EXP)}>${hl(s.headline||'',OR)}</div>
-      <div style="font-size:${subS}px;color:rgba(255,255,255,.75);line-height:1.38;font-weight:600;max-width:${mW}px" ${_ce('subline',EXP)}>${hl(s.subline||'',OR)}</div>
-      <div style="display:flex;align-items:center;gap:${Math.round(w*.015)}px;margin-top:${Math.round(h*.04)}px;font-size:${Math.round(w*.023)}px;color:rgba(255,255,255,.32);letter-spacing:2px;text-transform:uppercase">
+    const h1S=sz('h1',s.fs||1,w),mW=Math.round(w*.9);
+    inner=`<div ${_dg('hero',EXP)} style="position:absolute;inset:0;z-index:3;display:flex;flex-direction:column;justify-content:flex-end;padding:${PAD}px ${PAD}px ${Math.round(h*.09)}px;${_os(s,'hero',w)}">
+      <div ${_ce('headline',EXP)} style="font-family:'Bebas Neue';font-size:${h1S}px;line-height:.9;color:#fff;letter-spacing:2px;max-width:${mW}px;word-break:break-word;margin-bottom:${Math.round(h*.038)}px">${hl(s.headline||'',OR)}</div>
+      <div style="display:flex;align-items:center;gap:${Math.round(w*.015)}px;font-size:${Math.round(w*.023)}px;color:rgba(255,255,255,.4);letter-spacing:2px;text-transform:uppercase;pointer-events:none">
         <span>SWIPE</span><div style="width:${Math.round(w*.022)}px;height:${Math.round(w*.022)}px;border-right:2px solid ${OR};border-top:2px solid ${OR};transform:rotate(45deg)"></div>
       </div></div>`;
   } else if(s.type==='content'){
