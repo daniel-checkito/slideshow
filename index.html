@@ -766,6 +766,14 @@ function normSlide(s, i) {
   if (s.type==='value')   return {...base, imgPrompt:s.imgPrompt||'', type:'content', eyebrow:s.eyebrow||'KEY INSIGHT', headline:s.headline||'', body:s.body||'', tip:s.tipBox||s.tip||'', stat:s.stat||'', statLabel:s.statLabel||''};
   if (s.type==='summary') return {...base, imgPrompt:s.imgPrompt||'', type:'summary', headline:s.headline||'THE *TAKEAWAY*', items:s.listItems||s.items||[]};
   if (s.type==='cta')     return {...base, imgPrompt:s.imgPrompt||'', type:'cta', eyebrow:"Don't forget this", headline:'SAVE THIS *POST* 💾', cta1:s.cta1||'💬 Comment for free files', cta2:s.cta2||'🔔 Follow @meshminds3d'};
+  if (s.type==='comparison') return {...base, imgPrompt:s.imgPrompt||'', type:'comparison',
+    eyebrow:s.eyebrow||'THE DIFFERENCE', headline:s.headline||'',
+    left_label:s.left_label||'BEFORE', left_value:s.left_value||'',  left_sub:s.left_sub||'',
+    right_label:s.right_label||'AFTER',  right_value:s.right_value||'', right_sub:s.right_sub||'',
+    verdict:s.verdict||''};
+  if (s.type==='steps') return {...base, imgPrompt:s.imgPrompt||'', type:'steps',
+    eyebrow:s.eyebrow||'HOW TO START', headline:s.headline||'',
+    steps:s.steps||[]};
   return {...base, ...s, imgPrompt: s.imgPrompt||''}; // passthrough
 }
 
@@ -854,6 +862,20 @@ function buildEditor(s) {
     h+=fi('Headline (*word* = orange)','headline',s.headline,true,2);
     h+=fi('Primary Button','cta1',s.cta1);
     h+=fi('Secondary Button','cta2',s.cta2);
+  } else if(s.type==='comparison'){
+    h+=fi('Eyebrow','eyebrow',s.eyebrow);
+    h+=fi('Headline','headline',s.headline);
+    h+=fi('Left Label','left_label',s.left_label);
+    h+=fi('Left Value','left_value',s.left_value);
+    h+=fi('Left Sub','left_sub',s.left_sub);
+    h+=fi('Right Label','right_label',s.right_label);
+    h+=fi('Right Value','right_value',s.right_value);
+    h+=fi('Right Sub','right_sub',s.right_sub);
+    h+=fi('Verdict','verdict',s.verdict,true,2);
+  } else if(s.type==='steps'){
+    h+=fi('Eyebrow','eyebrow',s.eyebrow);
+    h+=fi('Headline','headline',s.headline);
+    (s.steps||[]).forEach((st,ii)=>{ h+=`<div class="fld"><label>Step ${ii+1}</label><input type="text" data-panel="steps.${ii}" value="${String(st.text||'').replace(/"/g,'&quot;')}" oninput="SLIDES[${cur}].steps[${ii}].text=this.value;refresh()"></div>`; });
   }
   es.innerHTML=h;
 }
@@ -950,6 +972,53 @@ function mkSlide(s,w,h){
         <div style="font-size:${Math.round(w*.024)}px;color:rgba(255,255,255,.22);letter-spacing:2px;margin-top:${Math.round(h*.045)}px">by <strong style="color:${OR}">@meshminds3d</strong></div>
       </div>`;
   }
+
+  // ── COMPARISON ──────────────────────────────────────────
+  else if(s.type==='comparison'){
+    const eyeS=sz('eyebrow',s.fs||1,w), h2S=sz('h2',s.fs||1,w), valS=Math.round(sz('h2',s.fs||1,w)*1.1);
+    const subS=sz('body',s.fs||1,w), verdS=sz('box',s.fs||1,w);
+    const colW=Math.round(w*.42), gap=Math.round(w*.03);
+    inner=`
+      <div ${_dg('comparison',EXP)} style="position:absolute;inset:0;z-index:3;display:flex;flex-direction:column;justify-content:flex-end;padding:${PAD}px ${PAD}px ${Math.round(h*.08)}px;${_os(s,'comparison',w)}">
+        <div ${_ce('eyebrow',EXP)} style="font-size:${eyeS}px;color:${OR};font-weight:900;letter-spacing:3px;text-transform:uppercase;margin-bottom:${Math.round(h*.02)}px">${s.eyebrow||'THE DIFFERENCE'}</div>
+        <div ${_ce('headline',EXP)} style="font-family:'Bebas Neue';font-size:${h2S}px;line-height:.93;color:#fff;letter-spacing:2px;margin-bottom:${Math.round(h*.03)}px">${hl(s.headline||'',OR)}</div>
+        <div style="display:flex;gap:${gap}px;align-items:stretch;pointer-events:${EXP?'auto':'none'}">
+          <div style="flex:1;background:rgba(255,255,255,.06);border:1.5px solid rgba(255,255,255,.12);border-radius:8px;padding:${Math.round(w*.04)}px;display:flex;flex-direction:column;gap:${Math.round(h*.01)}px">
+            <div style="font-size:${Math.round(eyeS*.85)}px;color:rgba(255,255,255,.45);font-weight:800;letter-spacing:2px;text-transform:uppercase">${s.left_label||'BEFORE'}</div>
+            <div ${_ce('left_value',EXP)} style="font-family:'Bebas Neue';font-size:${valS}px;color:rgba(255,255,255,.6);line-height:1">${s.left_value||''}</div>
+            <div ${_ce('left_sub',EXP)} style="font-size:${subS}px;color:rgba(255,255,255,.4);line-height:1.4;font-weight:500">${s.left_sub||''}</div>
+          </div>
+          <div style="flex:1;background:rgba(255,107,0,.12);border:1.5px solid rgba(255,107,0,.4);border-radius:8px;padding:${Math.round(w*.04)}px;display:flex;flex-direction:column;gap:${Math.round(h*.01)}px">
+            <div style="font-size:${Math.round(eyeS*.85)}px;color:${OR};font-weight:800;letter-spacing:2px;text-transform:uppercase">${s.right_label||'AFTER'}</div>
+            <div ${_ce('right_value',EXP)} style="font-family:'Bebas Neue';font-size:${valS}px;color:${OR};line-height:1">${s.right_value||''}</div>
+            <div ${_ce('right_sub',EXP)} style="font-size:${subS}px;color:rgba(255,107,0,.7);line-height:1.4;font-weight:500">${s.right_sub||''}</div>
+          </div>
+        </div>
+        ${s.verdict?`<div ${_ce('verdict',EXP)} style="margin-top:${Math.round(h*.025)}px;background:rgba(255,255,255,.06);border-left:3px solid ${OR};padding:${Math.round(verdS*.5)}px ${Math.round(verdS*.75)}px;font-size:${verdS}px;color:rgba(255,255,255,.85);font-weight:700;border-radius:0 5px 5px 0">${s.verdict}</div>`:''}
+      </div>`;
+  }
+
+  // ── STEPS ────────────────────────────────────────────────
+  else if(s.type==='steps'){
+    const eyeS=sz('eyebrow',s.fs||1,w), h2S=Math.round(sz('h2',s.fs||1,w)*.75);
+    const numS=Math.round(sz('h2',s.fs||1,w)*.85), stepS=sz('body',s.fs||1,w);
+    const steps=(s.steps||[]).map((st,ii)=>`
+      <div style="display:flex;align-items:flex-start;gap:${Math.round(w*.035)}px">
+        <div style="font-family:'Bebas Neue';font-size:${numS}px;color:${OR};line-height:1;flex-shrink:0;min-width:${Math.round(w*.1)}px">${st.num||String(ii+1).padStart(2,'0')}</div>
+        <div style="border-top:1.5px solid rgba(255,107,0,.3);padding-top:${Math.round(h*.012)}px;flex:1">
+          <div ${_ce('steps.'+ii,EXP)} style="font-size:${stepS}px;color:rgba(255,255,255,.85);line-height:1.5;font-weight:600">${st.text||''}</div>
+        </div>
+      </div>`).join('');
+    inner=`
+      <div ${_dg('steps',EXP)} style="position:absolute;inset:0;z-index:3;display:flex;flex-direction:column;justify-content:center;padding:${PAD}px;gap:${Math.round(h*.025)}px;${_os(s,'steps',w)}">
+        <div>
+          <div ${_ce('eyebrow',EXP)} style="font-size:${eyeS}px;color:${OR};font-weight:900;letter-spacing:3px;text-transform:uppercase;margin-bottom:${Math.round(h*.015)}px">${s.eyebrow||'HOW TO START'}</div>
+          <div ${_ce('headline',EXP)} style="font-family:'Bebas Neue';font-size:${h2S}px;line-height:.93;color:#fff;letter-spacing:2px;margin-bottom:${Math.round(h*.03)}px">${hl(s.headline||'',OR)}</div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:${Math.round(h*.022)}px">${steps}</div>
+      </div>`;
+  }
+
   return `<div style="width:${w}px;height:${h}px;position:relative;overflow:hidden;font-family:'DM Sans',sans-serif;background:#111">${bg}${dots}${inner}${pb}${wm}${ct}</div>`;
 }
 
