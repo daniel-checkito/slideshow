@@ -1071,49 +1071,47 @@ async function doExp(){
   await slp(30);
 
   const zip=new JSZip(),folder=zip.folder('meshminds_instagram_1080x1300');
-  const prev=SSZ; SSZ=EW;
+  const prev=SSZ;
 
-  // Render all slides — no inter-slide delays, minimal DOM paint time
-  for(let i=0;i<SLIDES.length;i++){
-    document.getElementById('of').style.width=Math.round((i/SLIDES.length)*88)+'%';
-    document.getElementById('os').textContent=`Slide ${i+1} / ${SLIDES.length}`;
+  try {
+    SSZ=EW;
+    for(let i=0;i<SLIDES.length;i++){
+      document.getElementById('of').style.width=Math.round((i/SLIDES.length)*88)+'%';
+      document.getElementById('os').textContent=`Slide ${i+1} / ${SLIDES.length}`;
+      const off=document.createElement('div');
+      off.style.cssText=`position:fixed;left:-${EW+100}px;top:0;width:${EW}px;height:${EH}px;overflow:hidden;visibility:hidden;`;
+      off.innerHTML=mkSlide(SLIDES[i],EW,EH);
+      document.body.appendChild(off);
+      await slp(8);
+      try{
+        const c=await html2canvas(off.firstElementChild,{
+          width:EW,height:EH,scale:1,
+          useCORS:true,allowTaint:true,
+          backgroundColor:'#111',logging:false,imageTimeout:0
+        });
+        const blob=await new Promise(r=>c.toBlob(r,'image/png',0.95));
+        folder.file(`slide_${String(i+1).padStart(2,'0')}_${SLIDES[i].type}.png`,blob);
+      }catch(e){console.error('Export error slide',i,e);}
+      document.body.removeChild(off);
+    }
 
-    // Create off-screen container
-    const off=document.createElement('div');
-    off.style.cssText=`position:fixed;left:-${EW+100}px;top:0;width:${EW}px;height:${EH}px;overflow:hidden;visibility:hidden;`;
-    off.innerHTML=mkSlide(SLIDES[i],EW,EH);
-    document.body.appendChild(off);
+    document.getElementById('of').style.width='94%';
+    document.getElementById('os').textContent='Creating ZIP…';
+    await slp(10);
+    const blob=await zip.generateAsync({type:'blob',compression:'STORE'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');a.href=url;a.download='meshminds_instagram_1080x1300.zip';a.click();
+    URL.revokeObjectURL(url);
+    document.getElementById('of').style.width='100%';
+    document.getElementById('os').textContent=`✓ ${SLIDES.length} slides exported`;
+    setTimeout(()=>document.getElementById('ov').classList.remove('on'),2000);
 
-    // Single minimal yield so browser paints the progress bar
-    await slp(8);
-
-    try{
-      const c=await html2canvas(off.firstElementChild,{
-        width:EW, height:EH, scale:1,
-        useCORS:true, allowTaint:true,
-        backgroundColor:'#111', logging:false,
-        imageTimeout:0, removeContainer:false
-      });
-      const blob=await new Promise(r=>c.toBlob(r,'image/png',0.95));
-      folder.file(`slide_${String(i+1).padStart(2,'0')}_${SLIDES[i].type}.png`,blob);
-    }catch(e){console.error('Export error slide',i,e);}
-
-    document.body.removeChild(off);
+  } finally {
+    // Always restore preview size — whether export completed, failed, or was cancelled
+    SSZ=prev;
+    calcSz();
+    if(SLIDES.length) refresh();
   }
-
-  SSZ=prev;
-  document.getElementById('of').style.width='94%';
-  document.getElementById('os').textContent='Creating ZIP…';
-  await slp(10);
-
-  const blob=await zip.generateAsync({type:'blob',compression:'STORE'}); // STORE = no compression, much faster
-  const url=URL.createObjectURL(blob);
-  const a=document.createElement('a');a.href=url;a.download='meshminds_instagram_1080x1300.zip';a.click();
-  URL.revokeObjectURL(url);
-
-  document.getElementById('of').style.width='100%';
-  document.getElementById('os').textContent=`✓ ${SLIDES.length} slides exported`;
-  setTimeout(()=>document.getElementById('ov').classList.remove('on'),2000);
 }
 
 function slp(ms){return new Promise(r=>setTimeout(r,ms));}
@@ -1256,7 +1254,13 @@ document.addEventListener('keydown',e=>{
 document.getElementById('topicInput').addEventListener('keydown',e=>{
   if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();doPlan();}
 });
-document.getElementById('ov').addEventListener('click',e=>{if(e.target===e.currentTarget)e.currentTarget.classList.remove('on');});
+document.getElementById('ov').addEventListener('click',e=>{
+  if(e.target===e.currentTarget){
+    e.currentTarget.classList.remove('on');
+    // Always restore SSZ when closing export overlay (cancel mid-export)
+    if(SLIDES.length){ calcSz(); refresh(); }
+  }
+});
 new ResizeObserver(()=>{calcSz();if(SLIDES.length)refresh();}).observe(document.getElementById('ctr'));
 applyWidths();
 calcSz();
