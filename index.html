@@ -412,7 +412,10 @@ html,body{height:100%;overflow:hidden;font-family:'DM Sans',sans-serif;backgroun
     <h3 style="font-family:'Bebas Neue';font-size:20px;letter-spacing:2px;color:var(--or)">Download Slides</h3>
     <p style="font-size:11px;color:var(--g5);margin-bottom:12px">Click any slide to download as PNG at 1080×1300px</p>
     <div class="dl-grid" id="dlGrid"></div>
-    <button class="dl-close" onclick="document.getElementById('ov').classList.remove('on')">Close</button>
+    <div style="display:flex;gap:8px;margin-top:4px;">
+      <button class="dl-close" style="flex:1;background:var(--or);color:#fff;border-color:var(--or);" onclick="downloadAll()">⬇ Download All</button>
+      <button class="dl-close" style="flex:1;" onclick="document.getElementById('ov').classList.remove('on')">Close</button>
+    </div>
   </div>
 </div>
 
@@ -795,8 +798,10 @@ function clearImg(idx) {
 function normSlide(s, i) {
   const base = { id:i, fs:1.0, accent: i%2===0?'orange':'yellow', _offsets:{} };
   if (s.type==='hero')    return {...base, imgPrompt:s.imgPrompt||'', type:'hero',    tag:s.eyebrow||s.tag||'🔥 Make Money 3D Printing', headline:s.headline||'', subline:s.subheadline||s.subline||''};
-  if (s.type==='problem') return {...base, imgPrompt:s.imgPrompt||'', type:'content', accent:'orange', eyebrow:s.eyebrow||'THE PROBLEM', headline:s.headline||'', body:s.body||'', stat:s.stat||'', statLabel:s.statLabel||''};
-  if (s.type==='value')   return {...base, imgPrompt:s.imgPrompt||'', type:'content', eyebrow:s.eyebrow||'KEY INSIGHT', headline:s.headline||'', body:s.body||'', tip:s.tipBox||s.tip||'', stat:s.stat||'', statLabel:s.statLabel||''};
+  if (s.type==='problem') return {...base, imgPrompt:s.imgPrompt||'', type:'content', accent:'orange', eyebrow:(s.eyebrow||'THE PROBLEM').replace(/\s*\d+\s*\/\s*\d+/g,'').trim(), headline:s.headline||'', body:s.body||'', stat:s.stat||'', statLabel:s.statLabel||''};
+  if (s.type==='value')   return {...base, imgPrompt:s.imgPrompt||'', type:'content',
+    eyebrow:(s.eyebrow||'KEY INSIGHT').replace(/\s*\d+\s*\/\s*\d+/g,'').trim(),
+    headline:s.headline||'', body:s.body||'', tip:s.tipBox||s.tip||'', stat:s.stat||'', statLabel:s.statLabel||''};
   if (s.type==='summary') return {...base, imgPrompt:s.imgPrompt||'', type:'summary', headline:s.headline||'THE *TAKEAWAY*', items:s.listItems||s.items||[]};
   if (s.type==='cta')     return {...base, imgPrompt:s.imgPrompt||'', type:'cta', headline:s.headline||'SAVE THIS', cta1:s.cta1||'📌 Save this — you\'ll want this later', cta2:s.cta2||'🔔 Follow @meshminds3d'};
   if (s.type==='comparison') return {...base, imgPrompt:s.imgPrompt||'', type:'comparison',
@@ -807,7 +812,10 @@ function normSlide(s, i) {
   if (s.type==='steps') return {...base, imgPrompt:s.imgPrompt||'', type:'steps',
     eyebrow:s.eyebrow||'HOW TO START', headline:s.headline||'',
     steps:s.steps||[]};
-  const slide = {...base, ...s, imgPrompt: s.imgPrompt||''}; slide._original = JSON.stringify(slide); return slide; // passthrough
+  const slide = {...base, ...s, imgPrompt: s.imgPrompt||''};
+  // Strip product numbering from any eyebrow (e.g. "PRODUCT 01 / 03" → "PRODUCT")
+  if (slide.eyebrow) slide.eyebrow = slide.eyebrow.replace(/\s*\d+\s*\/\s*\d+/g,'').trim();
+  slide._original = JSON.stringify(slide); return slide; // passthrough
 }
 
 // ═══════════════════════════════════════════════════
@@ -1128,6 +1136,15 @@ async function doExp(){
   });
 
   document.getElementById('ov').classList.add('on');
+}
+
+async function downloadAll(){
+  // Download all slides sequentially
+  for(let i=0;i<SLIDES.length;i++){
+    const row=document.getElementById('dlrow'+i);
+    if(row && !row.classList.contains('done')) await downloadSlide(i);
+    await slp(200); // small gap between downloads
+  }
 }
 
 async function downloadSlide(i){
