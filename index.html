@@ -621,8 +621,7 @@ function showPlanCard(plan, topic) {
           </div>` : ''}
 
           <div class="plan-actions">
-            <button class="pa-btn confirm" onclick="doGenerate()">✓ Generate Slides</button>
-            <button class="pa-btn change" onclick="showAngleEditor('${topic.replace(/'/g,"\\'")}')">↺ Change Angle</button>
+            <button class="pa-btn change" style="flex:1" onclick="showAngleEditor('${topic.replace(/'/g,"\\'")}')">↺ Change Angle</button>
           </div>
 
         </div>
@@ -632,6 +631,8 @@ function showPlanCard(plan, topic) {
 
   msgs.appendChild(card);
   msgs.scrollTop = msgs.scrollHeight;
+  // Auto-generate after plan is shown
+  setTimeout(() => doGenerate(), 400);
 }
 
 // ═══════════════════════════════════════════════════
@@ -1266,43 +1267,33 @@ async function downloadSlide(i){
   const isTransparent = !!SLIDES[i]._transparent;
   try{
     SSZ=EW;
-
-    // Render with opacity:0 at top:0 — html2canvas requires element to be
-    // in the viewport and visible (not visibility:hidden or far off-screen)
     const wrapper = document.createElement('div');
     wrapper.style.cssText = `position:fixed;top:0;left:0;width:${EW}px;height:${EH}px;z-index:-9999;opacity:0.01;pointer-events:none;`;
     wrapper.innerHTML = mkSlide(SLIDES[i], EW, EH);
     document.body.appendChild(wrapper);
-
-    // Wait for fonts/images to settle
     await slp(150);
 
     const slide = wrapper.firstElementChild;
-
     if (isTransparent && slide) {
       slide.style.background = 'transparent';
       slide.querySelectorAll('div').forEach(d => {
-        const bg = d.style.background || '';
-        if (bg && !bg.includes('rgba(255,107,0') && !bg.includes('#FF6B00') && !bg.includes('ff6b00')) {
+        const z = parseInt(d.style.zIndex) || 0;
+        // z-index 0 = solid base bg color — remove
+        // z-index 1 = dark fade gradient — KEEP (user wants this)
+        // z-index 2+ = content — keep
+        if (z === 0) {
           d.style.background = 'transparent';
-        }
-        if (d.style.backgroundImage && d.style.backgroundImage !== 'none') {
           d.style.backgroundImage = 'none';
         }
       });
     }
 
     const c = await html2canvas(slide, {
-      width: EW,
-      height: EH,
-      scale: 1,
-      useCORS: true,
-      allowTaint: true,
+      width: EW, height: EH, scale: 1,
+      useCORS: true, allowTaint: true,
       backgroundColor: isTransparent ? null : '#111111',
-      logging: false,
-      imageTimeout: 5000
+      logging: false, imageTimeout: 5000
     });
-
     document.body.removeChild(wrapper);
 
     const blob = await new Promise(r => c.toBlob(r, 'image/png', 1.0));
@@ -1318,7 +1309,7 @@ async function downloadSlide(i){
 
   }catch(e){
     icon.textContent='✗';
-    console.error('Download error slide', i, e);
+    console.error('Download error', i, e);
   }finally{
     SSZ=prev;
     calcSz();
