@@ -282,9 +282,11 @@ html,body{height:100%;overflow:hidden;font-family:'DM Sans',sans-serif;backgroun
 [data-ce]{cursor:text;outline:none;border-radius:3px;}
 [data-ce]:hover{box-shadow:0 0 0 2px rgba(255,107,0,.45);}
 [data-ce]:focus{box-shadow:0 0 0 2px #FF6B00;background:rgba(255,107,0,.08)!important;}
-[data-drag]{cursor:grab;}
-[data-drag]:hover{outline:1px dashed rgba(255,255,255,.18);}
-[data-drag].dragging{cursor:grabbing;outline:2px solid #FF6B00;}
+[data-drag]{cursor:grab;position:relative;}
+[data-drag]:not([data-ce]):hover{outline:1px dashed rgba(255,255,255,.25);outline-offset:4px;border-radius:3px;}
+[data-drag].dragging{cursor:grabbing !important;outline:2px solid #FF6B00;outline-offset:4px;border-radius:3px;}
+[data-ce][data-drag]{cursor:text;}
+[data-ce][data-drag]:focus{cursor:text;}
 #editHint{position:absolute;top:7px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.72);color:#fff;font-size:10px;font-weight:700;padding:3px 12px;border-radius:100px;pointer-events:none;opacity:0;transition:opacity .25s;white-space:nowrap;z-index:30;}
 #sf:hover #editHint{opacity:1;}
 
@@ -959,9 +961,12 @@ function onCanvasEdit(el) {
 function onCanvasKeydown(e) { if(e.key==='Enter'){e.preventDefault();e.target.blur();} e.stopPropagation(); }
 let _drag=null;
 function startBlockDrag(e,id) {
-  if(e.target.getAttribute('data-ce'))return;
-  e.preventDefault();e.stopPropagation();
-  const el=e.currentTarget; el.classList.add('dragging');
+  // Don't start drag if clicking into text edit
+  if(e.target.isContentEditable || e.target.getAttribute('contenteditable')) return;
+  if(e.target.tagName==='BUTTON') return;
+  e.preventDefault(); e.stopPropagation();
+  const el=e.currentTarget;
+  el.classList.add('dragging');
   const s=SLIDES[cur]; if(!s._offsets)s._offsets={};
   const o=s._offsets[id]||{x:0,y:0};
   _drag={el,id,sx:e.clientX,sy:e.clientY,ox:o.x,oy:o.y};
@@ -988,64 +993,72 @@ function mkSlide(s,w,h){
   let inner='';
   if(s.type==='hero'){
     const h1S=sz('h1',s.fs||1,w),subS=sz('sub',s.fs||1,w)*.85,mW=Math.round(w*.9);
-    inner=`<div ${_dg('hero',EXP)} style="position:absolute;inset:0;z-index:3;display:flex;flex-direction:column;justify-content:flex-end;padding:${PAD}px ${PAD}px ${Math.round(h*.09)}px;${_os(s,'hero',w)}">
-      <div ${_ce('headline',EXP)} style="font-family:'Bebas Neue';font-size:${h1S}px;line-height:.9;color:#fff;letter-spacing:2px;max-width:${mW}px;word-break:break-word;margin-bottom:${Math.round(h*.025)}px">${hl(s.headline||'',OR)}</div>
-      ${s.subline?`<div ${_ce('subline',EXP)} style="font-size:${subS}px;color:rgba(255,255,255,.7);line-height:1.45;font-weight:600;max-width:${mW}px;margin-bottom:${Math.round(h*.03)}px">${s.subline}</div>`:''}
-      <div style="display:flex;align-items:center;gap:${Math.round(w*.015)}px;font-size:${Math.round(w*.023)}px;color:rgba(255,255,255,.4);letter-spacing:2px;text-transform:uppercase;pointer-events:none">
-        <span>SWIPE</span><div style="width:${Math.round(w*.022)}px;height:${Math.round(w*.022)}px;border-right:2px solid ${OR};border-top:2px solid ${OR};transform:rotate(45deg)"></div>
-      </div></div>`;
+    inner=`
+      <div style="position:absolute;inset:0;z-index:3;pointer-events:none"></div>
+      <div style="position:absolute;left:${PAD}px;right:${PAD}px;bottom:${Math.round(h*.09)}px;z-index:3;display:flex;flex-direction:column;gap:0">
+        <div ${_dg('hero-hl',EXP)} ${_ce('headline',EXP)} style="font-family:'Bebas Neue';font-size:${h1S}px;line-height:.9;color:#fff;letter-spacing:2px;max-width:${mW}px;word-break:break-word;margin-bottom:${Math.round(h*.025)}px;display:inline-block;cursor:grab;${_os(s,'hero-hl',w)}">${hl(s.headline||'',OR)}</div>
+        ${s.subline?`<div ${_dg('hero-sub',EXP)} ${_ce('subline',EXP)} style="font-size:${subS}px;color:rgba(255,255,255,.7);line-height:1.45;font-weight:600;max-width:${mW}px;margin-bottom:${Math.round(h*.03)}px;display:inline-block;cursor:grab;${_os(s,'hero-sub',w)}">${s.subline}</div>`:''}
+        <div style="display:flex;align-items:center;gap:${Math.round(w*.015)}px;font-size:${Math.round(w*.023)}px;color:rgba(255,255,255,.4);letter-spacing:2px;text-transform:uppercase;pointer-events:none">
+          <span>SWIPE</span><div style="width:${Math.round(w*.022)}px;height:${Math.round(w*.022)}px;border-right:2px solid ${OR};border-top:2px solid ${OR};transform:rotate(45deg)"></div>
+        </div>
+      </div>`;
   } else if(s.type==='content'){
     const h2S=sz('h2',s.fs||1,w),eyeS=sz('eyebrow',s.fs||1,w),bdS=sz('body',s.fs||1,w),boxS=sz('box',s.fs||1,w),stS=sz('stat',s.fs||1,w),stLS=sz('statSub',s.fs||1,w);
     const bnS=Math.round(w*.42),mW=s.stat?Math.round(w*.52):Math.round(w*.86);
-    inner=`<div style="position:absolute;top:${Math.round(h*-.01)}px;right:${Math.round(w*.01)}px;font-family:'Bebas Neue';font-size:${bnS}px;color:rgba(255,255,255,.042);line-height:1;z-index:2">${String(s.id).padStart(2,'0')}</div>
-      <div ${_dg('content',EXP)} style="position:absolute;inset:0;z-index:3;display:flex;flex-direction:column;justify-content:flex-end;padding:${PAD}px ${PAD}px ${Math.round(h*.1)}px;${_os(s,'content',w)}">
-        <div style="font-size:${eyeS}px;color:${OR};font-weight:800;letter-spacing:3px;text-transform:uppercase;margin-bottom:${Math.round(h*.025)}px" ${_ce('eyebrow',EXP)}>${s.eyebrow||''}</div>
-        <div style="width:${Math.round(w*.12)}px;height:${Math.max(3,Math.round(w*.005))}px;background:${a};border-radius:2px;margin-bottom:${Math.round(h*.03)}px"></div>
-        <div style="font-family:'Bebas Neue';font-size:${h2S}px;line-height:.93;color:#fff;letter-spacing:2px;max-width:${mW}px;word-break:break-word;margin-bottom:${Math.round(h*.03)}px" ${_ce('headline',EXP)}>${hl(s.headline||'',a)}</div>
-        <div style="font-size:${bdS}px;color:rgba(255,255,255,.75);line-height:1.48;font-weight:500;max-width:${mW}px;${s.tip?'margin-bottom:'+Math.round(h*.03)+'px':''}" ${_ce('body',EXP)}>${hl(s.body||'',a)}</div>
-        ${s.tip?`<div style="background:rgba(255,255,255,.07);border-left:${Math.max(3,Math.round(w*.005))}px solid ${a};padding:${Math.round(boxS*.5)}px ${Math.round(boxS*.75)}px;font-size:${boxS}px;color:rgba(255,255,255,.9);line-height:1.45;border-radius:0 4px 4px 0;font-weight:600;max-width:${Math.round(w*.86)}px" ${_ce('tip',EXP)}>${s.tip}</div>`:''}
-        ${s.stat?`<div style="position:absolute;top:${Math.round(h*.06)}px;right:${PAD}px;text-align:center;border:${Math.max(2,Math.round(w*.003))}px solid rgba(255,107,0,.35);border-radius:8px;padding:${Math.round(w*.03)}px ${Math.round(w*.04)}px;background:rgba(0,0,0,.4)">
-          <div style="font-family:'Bebas Neue';font-size:${stS}px;color:${a};line-height:1">${s.stat}</div>
-          ${s.statLabel?`<div style="font-size:${stLS}px;color:rgba(255,255,255,.55);font-weight:700;letter-spacing:1px;margin-top:${Math.round(w*.01)}px">${s.statLabel}</div>`:''}
-        </div>`:''}
-      </div>`;
+    inner=`<div style="position:absolute;top:${Math.round(h*-.01)}px;right:${Math.round(w*.01)}px;font-family:'Bebas Neue';font-size:${bnS}px;color:rgba(255,255,255,.042);line-height:1;z-index:2;pointer-events:none">${String(s.id).padStart(2,'0')}</div>
+      <div style="position:absolute;left:${PAD}px;right:${PAD}px;bottom:${Math.round(h*.1)}px;z-index:3;display:flex;flex-direction:column;gap:0">
+        <div ${_dg('cnt-eye',EXP)} ${_ce('eyebrow',EXP)} style="font-size:${eyeS}px;color:${OR};font-weight:800;letter-spacing:3px;text-transform:uppercase;margin-bottom:${Math.round(h*.025)}px;display:inline-block;${_os(s,'cnt-eye',w)}">${s.eyebrow||''}</div>
+        <div style="width:${Math.round(w*.12)}px;height:${Math.max(3,Math.round(w*.005))}px;background:${a};border-radius:2px;margin-bottom:${Math.round(h*.03)}px;pointer-events:none"></div>
+        <div ${_dg('cnt-hl',EXP)} ${_ce('headline',EXP)} style="font-family:'Bebas Neue';font-size:${h2S}px;line-height:.93;color:#fff;letter-spacing:2px;max-width:${mW}px;word-break:break-word;margin-bottom:${Math.round(h*.03)}px;display:inline-block;${_os(s,'cnt-hl',w)}">${hl(s.headline||'',a)}</div>
+        <div ${_dg('cnt-body',EXP)} ${_ce('body',EXP)} style="font-size:${bdS}px;color:rgba(255,255,255,.75);line-height:1.48;font-weight:500;max-width:${mW}px;${s.tip?'margin-bottom:'+Math.round(h*.03)+'px':''};display:inline-block;${_os(s,'cnt-body',w)}">${hl(s.body||'',a)}</div>
+        ${s.tip?`<div ${_dg('cnt-tip',EXP)} ${_ce('tip',EXP)} style="background:rgba(255,255,255,.07);border-left:${Math.max(3,Math.round(w*.005))}px solid ${a};padding:${Math.round(boxS*.5)}px ${Math.round(boxS*.75)}px;font-size:${boxS}px;color:rgba(255,255,255,.9);line-height:1.45;border-radius:0 4px 4px 0;font-weight:600;max-width:${Math.round(w*.86)}px;display:block;${_os(s,'cnt-tip',w)}">${s.tip}</div>`:''}
+      </div>
+      ${s.stat?`<div ${_dg('cnt-stat',EXP)} style="position:absolute;top:${Math.round(h*.06)}px;right:${PAD}px;text-align:center;border:${Math.max(2,Math.round(w*.003))}px solid rgba(255,107,0,.35);border-radius:8px;padding:${Math.round(w*.03)}px ${Math.round(w*.04)}px;background:rgba(0,0,0,.4);z-index:3;${_os(s,'cnt-stat',w)}">
+          <div ${_ce('stat',EXP)} style="font-family:'Bebas Neue';font-size:${stS}px;color:${a};line-height:1">${s.stat}</div>
+          ${s.statLabel?`<div ${_ce('statLabel',EXP)} style="font-size:${stLS}px;color:rgba(255,255,255,.55);font-weight:700;letter-spacing:1px;margin-top:${Math.round(w*.01)}px">${s.statLabel}</div>`:''}
+        </div>`:''}`;
+
   } else if(s.type==='summary'){
     const h2S=sz('h2',s.fs||1,w),liS=Math.round(sz('listitem',s.fs||1,w)*1.1),gap=Math.round(h*.022);
     const items=(s.items||[]).map((it,ii)=>`
-      <div style="display:flex;align-items:stretch;gap:${Math.round(w*.03)}px;padding:${Math.round(h*.01)}px 0">
-        <div style="width:3px;background:${OR};border-radius:2px;flex-shrink:0;opacity:.85"></div>
+      <div ${_dg('sum-item'+ii,EXP)} style="display:flex;align-items:stretch;gap:${Math.round(w*.03)}px;padding:${Math.round(h*.01)}px 0;${_os(s,'sum-item'+ii,w)}">
+        <div style="width:3px;background:${OR};border-radius:2px;flex-shrink:0;opacity:.85;pointer-events:none"></div>
         <span ${_ce('items.'+ii,EXP)} style="font-size:${liS}px;color:rgba(255,255,255,.9);font-weight:600;line-height:1.45;flex:1">${it}</span>
       </div>`).join('');
     inner=`<div style="position:absolute;inset:0;background:radial-gradient(ellipse at 50% 0%,rgba(255,107,0,.15) 0%,transparent 60%);z-index:2;pointer-events:none"></div>
-      <div ${_dg('summary',EXP)} style="position:absolute;inset:0;z-index:3;display:flex;flex-direction:column;justify-content:center;padding:${PAD}px;${_os(s,'summary',w)}">
-        <div style="font-family:'Bebas Neue';font-size:${h2S}px;line-height:.93;color:#fff;letter-spacing:2px;margin-bottom:${Math.round(h*.04)}px" ${_ce('headline',EXP)}>${hl(s.headline||'THE *TAKEAWAY*',OR)}</div>
+      <div style="position:absolute;inset:0;z-index:3;display:flex;flex-direction:column;justify-content:center;padding:${PAD}px">
+        <div ${_dg('sum-hl',EXP)} style="display:inline-block;margin-bottom:${Math.round(h*.04)}px;${_os(s,'sum-hl',w)}">
+          <div style="font-family:'Bebas Neue';font-size:${h2S}px;line-height:.93;color:#fff;letter-spacing:2px" ${_ce('headline',EXP)}>${hl(s.headline||'THE *TAKEAWAY*',OR)}</div>
+        </div>
         <div style="display:flex;flex-direction:column;gap:${gap}px">${items}</div>
       </div>`;
+
   } else if(s.type==='cta'){
     const h1S=sz('h1',s.fs||1,w),bpS=sz('btnp',s.fs||1,w),bsS=sz('btns',s.fs||1,w);
-    const off1=offStyle ? offStyle(s,'cta',w) : (_os ? _os(s,'cta',w) : '');
     inner=`<div style="position:absolute;inset:0;background:linear-gradient(150deg,#111 0%,#1e0a00 50%,#111 100%);z-index:0"></div>
       <div style="position:absolute;inset:0;background:radial-gradient(ellipse at 50% 50%,rgba(255,107,0,.25) 0%,transparent 65%);z-index:2;pointer-events:none"></div>
-      <div ${_dg('cta',EXP)} style="position:absolute;inset:0;z-index:3;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;padding:${PAD}px;${_os(s,'cta',w)}">
-        <div ${_ce('headline',EXP)} style="font-family:'Bebas Neue';font-size:${h1S}px;line-height:.9;color:#fff;margin-bottom:${Math.round(h*.055)}px">${hl(s.headline||'SAVE THIS',OR)}</div>
-        <div style="display:flex;flex-direction:column;gap:${Math.round(h*.022)}px;width:100%">
-          <div ${_ce('cta1',EXP)} style="background:${OR};color:#000;padding:${Math.round(h*.03)}px ${Math.round(w*.04)}px;border-radius:5px;font-size:${bpS}px;font-weight:900;letter-spacing:1px">${s.cta1||'📌 Save this — you\'ll want this later'}</div>
+      <div style="position:absolute;inset:0;z-index:3;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;padding:${PAD}px;gap:0">
+        <div ${_dg('cta-hl',EXP)} style="display:inline-block;margin-bottom:${Math.round(h*.055)}px;${_os(s,'cta-hl',w)}">
+          <div ${_ce('headline',EXP)} style="font-family:'Bebas Neue';font-size:${h1S}px;line-height:.9;color:#fff;">${hl(s.headline||'SAVE THIS',OR)}</div>
+        </div>
+        <div ${_dg('cta-btns',EXP)} style="display:flex;flex-direction:column;gap:${Math.round(h*.022)}px;width:100%;${_os(s,'cta-btns',w)}">
+          <div ${_ce('cta1',EXP)} style="background:${OR};color:#000;padding:${Math.round(h*.03)}px ${Math.round(w*.04)}px;border-radius:5px;font-size:${bpS}px;font-weight:900;letter-spacing:1px">${s.cta1||'📌 Save this'}</div>
           <div ${_ce('cta2',EXP)} style="border:2px solid rgba(255,255,255,.15);color:rgba(255,255,255,.5);padding:${Math.round(h*.025)}px ${Math.round(w*.04)}px;border-radius:5px;font-size:${bsS}px;font-weight:600">${s.cta2||'🔔 Follow @meshminds3d'}</div>
         </div>
         <div style="font-size:${Math.round(w*.024)}px;color:rgba(255,255,255,.22);letter-spacing:2px;margin-top:${Math.round(h*.045)}px;pointer-events:none">by <strong style="color:${OR}">@meshminds3d</strong></div>
       </div>`;
+
   }
 
   // ── COMPARISON ──────────────────────────────────────────
   else if(s.type==='comparison'){
     const eyeS=sz('eyebrow',s.fs||1,w), h2S=sz('h2',s.fs||1,w), valS=Math.round(sz('h2',s.fs||1,w)*1.1);
     const subS=sz('body',s.fs||1,w), verdS=sz('box',s.fs||1,w);
-    const colW=Math.round(w*.42), gap=Math.round(w*.03);
     inner=`
-      <div ${_dg('comparison',EXP)} style="position:absolute;inset:0;z-index:3;display:flex;flex-direction:column;justify-content:flex-end;padding:${PAD}px ${PAD}px ${Math.round(h*.08)}px;${_os(s,'comparison',w)}">
-        <div ${_ce('eyebrow',EXP)} style="font-size:${eyeS}px;color:${OR};font-weight:900;letter-spacing:3px;text-transform:uppercase;margin-bottom:${Math.round(h*.02)}px">${s.eyebrow||'THE DIFFERENCE'}</div>
-        <div ${_ce('headline',EXP)} style="font-family:'Bebas Neue';font-size:${h2S}px;line-height:.93;color:#fff;letter-spacing:2px;margin-bottom:${Math.round(h*.03)}px">${hl(s.headline||'',OR)}</div>
-        <div style="display:flex;gap:${gap}px;align-items:stretch;pointer-events:${EXP?'auto':'none'}">
+      <div style="position:absolute;left:${PAD}px;right:${PAD}px;bottom:${Math.round(h*.08)}px;z-index:3">
+        <div ${_dg('cmp-eye',EXP)} ${_ce('eyebrow',EXP)} style="font-size:${eyeS}px;color:${OR};font-weight:900;letter-spacing:3px;text-transform:uppercase;margin-bottom:${Math.round(h*.02)}px;display:inline-block;${_os(s,'cmp-eye',w)}">${s.eyebrow||'THE DIFFERENCE'}</div>
+        <div ${_dg('cmp-hl',EXP)} ${_ce('headline',EXP)} style="font-family:'Bebas Neue';font-size:${h2S}px;line-height:.93;color:#fff;letter-spacing:2px;margin-bottom:${Math.round(h*.03)}px;display:inline-block;${_os(s,'cmp-hl',w)}">${hl(s.headline||'',OR)}</div>
+        <div ${_dg('cmp-cols',EXP)} style="display:flex;gap:${Math.round(w*.03)}px;${_os(s,'cmp-cols',w)}">
           <div style="flex:1;background:rgba(255,255,255,.06);border:1.5px solid rgba(255,255,255,.12);border-radius:8px;padding:${Math.round(w*.04)}px;display:flex;flex-direction:column;gap:${Math.round(h*.01)}px">
             <div style="font-size:${Math.round(eyeS*.85)}px;color:rgba(255,255,255,.45);font-weight:800;letter-spacing:2px;text-transform:uppercase">${s.left_label||'BEFORE'}</div>
             <div ${_ce('left_value',EXP)} style="font-family:'Bebas Neue';font-size:${valS}px;color:rgba(255,255,255,.6);line-height:1">${s.left_value||''}</div>
@@ -1057,30 +1070,31 @@ function mkSlide(s,w,h){
             <div ${_ce('right_sub',EXP)} style="font-size:${subS}px;color:rgba(255,107,0,.7);line-height:1.4;font-weight:500">${s.right_sub||''}</div>
           </div>
         </div>
-        ${s.verdict?`<div ${_ce('verdict',EXP)} style="margin-top:${Math.round(h*.025)}px;background:rgba(255,255,255,.06);border-left:3px solid ${OR};padding:${Math.round(verdS*.5)}px ${Math.round(verdS*.75)}px;font-size:${verdS}px;color:rgba(255,255,255,.85);font-weight:700;border-radius:0 5px 5px 0">${s.verdict}</div>`:''}
+        ${s.verdict?`<div ${_dg('cmp-verd',EXP)} ${_ce('verdict',EXP)} style="margin-top:${Math.round(h*.025)}px;background:rgba(255,255,255,.06);border-left:3px solid ${OR};padding:${Math.round(verdS*.5)}px ${Math.round(verdS*.75)}px;font-size:${verdS}px;color:rgba(255,255,255,.85);font-weight:700;border-radius:0 5px 5px 0;display:block;${_os(s,'cmp-verd',w)}">${s.verdict}</div>`:''}
       </div>`;
   }
 
   // ── STEPS ────────────────────────────────────────────────
   else if(s.type==='steps'){
     const eyeS=sz('eyebrow',s.fs||1,w), h2S=Math.round(sz('h2',s.fs||1,w)*.75);
-    const numS=Math.round(sz('h2',s.fs||1,w)*.85), stepS=sz('body',s.fs||1,w);
+    const numS=Math.round(sz('h2',s.fs||1,w)*.45);
+    const stepS=Math.round(sz('body',s.fs||1,w)*1.18);
     const steps=(s.steps||[]).map((st,ii)=>`
-      <div style="display:flex;align-items:flex-start;gap:${Math.round(w*.035)}px">
-        <div style="font-family:'Bebas Neue';font-size:${numS}px;color:${OR};line-height:1;flex-shrink:0;min-width:${Math.round(w*.1)}px">${st.num||String(ii+1).padStart(2,'0')}</div>
-        <div style="border-top:1.5px solid rgba(255,107,0,.3);padding-top:${Math.round(h*.012)}px;flex:1">
-          <div ${_ce('steps.'+ii,EXP)} style="font-size:${stepS}px;color:rgba(255,255,255,.85);line-height:1.5;font-weight:600">${st.text||''}</div>
-        </div>
+      <div ${_dg('stp-row'+ii,EXP)} style="display:flex;align-items:center;gap:${Math.round(w*.04)}px;${_os(s,'stp-row'+ii,w)}">
+        <div style="font-family:'Bebas Neue';font-size:${numS}px;color:${OR};line-height:1;flex-shrink:0;min-width:${Math.round(w*.08)}px">${st.num||String(ii+1).padStart(2,'0')}</div>
+        <div style="width:2px;height:${Math.round(h*.045)}px;background:rgba(255,107,0,.35);flex-shrink:0;pointer-events:none"></div>
+        <div ${_ce('steps.'+ii,EXP)} style="font-size:${stepS}px;color:rgba(255,255,255,.92);line-height:1.4;font-weight:700;flex:1">${st.text||''}</div>
       </div>`).join('');
     inner=`
-      <div ${_dg('steps',EXP)} style="position:absolute;inset:0;z-index:3;display:flex;flex-direction:column;justify-content:center;padding:${PAD}px;gap:${Math.round(h*.025)}px;${_os(s,'steps',w)}">
-        <div>
-          <div ${_ce('eyebrow',EXP)} style="font-size:${eyeS}px;color:${OR};font-weight:900;letter-spacing:3px;text-transform:uppercase;margin-bottom:${Math.round(h*.015)}px">${s.eyebrow||'HOW TO START'}</div>
-          <div ${_ce('headline',EXP)} style="font-family:'Bebas Neue';font-size:${h2S}px;line-height:.93;color:#fff;letter-spacing:2px;margin-bottom:${Math.round(h*.03)}px">${hl(s.headline||'',OR)}</div>
+      <div style="position:absolute;left:${PAD}px;right:${PAD}px;top:50%;transform:translateY(-50%);z-index:3">
+        <div ${_dg('stp-head',EXP)} style="margin-bottom:${Math.round(h*.025)}px;${_os(s,'stp-head',w)}">
+          <div ${_ce('eyebrow',EXP)} style="font-size:${eyeS}px;color:${OR};font-weight:900;letter-spacing:3px;text-transform:uppercase;margin-bottom:${Math.round(h*.012)}px">${s.eyebrow||'HOW TO START'}</div>
+          <div ${_ce('headline',EXP)} style="font-family:'Bebas Neue';font-size:${h2S}px;line-height:.93;color:#fff;letter-spacing:2px">${hl(s.headline||'',OR)}</div>
         </div>
-        <div style="display:flex;flex-direction:column;gap:${Math.round(h*.022)}px">${steps}</div>
+        <div style="display:flex;flex-direction:column;gap:${Math.round(h*.02)}px">${steps}</div>
       </div>`;
   }
+
 
   return `<div style="width:${w}px;height:${h}px;position:relative;overflow:hidden;font-family:'DM Sans',sans-serif;background:#111">${bg}${dots}${inner}${pb}${wm}${ct}</div>`;
 }
@@ -1308,6 +1322,7 @@ document.addEventListener('mousemove', e => {
     const sc=SSZ/EW;
     const nx=_drag.ox+(e.clientX-_drag.sx)/sc, ny=_drag.oy+(e.clientY-_drag.sy)/sc;
     s._offsets[_drag.id]={x:nx,y:ny};
+    // Apply transform on top of any existing CSS transform
     _drag.el.style.transform=`translate(${Math.round(nx*sc)}px,${Math.round(ny*sc)}px)`;
     return;
   }
