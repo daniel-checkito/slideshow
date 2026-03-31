@@ -1266,56 +1266,59 @@ async function downloadSlide(i){
   const isTransparent = !!SLIDES[i]._transparent;
   try{
     SSZ=EW;
-    const off=document.createElement('div');
-    off.style.cssText=`position:fixed;left:-${EW+200}px;top:0;width:${EW}px;height:${EH}px;overflow:hidden;visibility:hidden;`;
-    off.innerHTML=mkSlide(SLIDES[i],EW,EH);
 
-    if (isTransparent) {
-      // Hide all background layers: the root bg color, bg image, gradient overlays
-      const slide = off.firstElementChild;
-      if (slide) {
-        slide.style.background = 'transparent';
-        // Hide any z-index:0 or z-index:1 background divs (gradients, bg color)
-        slide.querySelectorAll('div').forEach(d => {
-          const z = parseInt(window.getComputedStyle(d).zIndex) || 0;
-          const bg = d.style.background || d.style.backgroundImage || '';
-          if (z <= 1 && bg) d.style.background = 'transparent';
-          // Also hide bg image containers
-          if (d.style.backgroundImage && d.style.backgroundImage !== 'none') {
-            d.style.backgroundImage = 'none';
-          }
-        });
-        // Remove any background images
-        slide.querySelectorAll('img').forEach(img => {
-          if (img.classList.contains('bg-img') || img.style.objectFit === 'cover') {
-            img.style.display = 'none';
-          }
-        });
-      }
+    // Render with opacity:0 at top:0 — html2canvas requires element to be
+    // in the viewport and visible (not visibility:hidden or far off-screen)
+    const wrapper = document.createElement('div');
+    wrapper.style.cssText = `position:fixed;top:0;left:0;width:${EW}px;height:${EH}px;z-index:-9999;opacity:0.01;pointer-events:none;`;
+    wrapper.innerHTML = mkSlide(SLIDES[i], EW, EH);
+    document.body.appendChild(wrapper);
+
+    // Wait for fonts/images to settle
+    await slp(150);
+
+    const slide = wrapper.firstElementChild;
+
+    if (isTransparent && slide) {
+      slide.style.background = 'transparent';
+      slide.querySelectorAll('div').forEach(d => {
+        const bg = d.style.background || '';
+        if (bg && !bg.includes('rgba(255,107,0') && !bg.includes('#FF6B00') && !bg.includes('ff6b00')) {
+          d.style.background = 'transparent';
+        }
+        if (d.style.backgroundImage && d.style.backgroundImage !== 'none') {
+          d.style.backgroundImage = 'none';
+        }
+      });
     }
 
-    document.body.appendChild(off);
-    await slp(50);
-    const c=await html2canvas(off.firstElementChild,{
-      width:EW,height:EH,scale:1,
-      useCORS:true,allowTaint:true,
-      backgroundColor: isTransparent ? null : '#111',
-      logging:false,imageTimeout:0
+    const c = await html2canvas(slide, {
+      width: EW,
+      height: EH,
+      scale: 1,
+      useCORS: true,
+      allowTaint: true,
+      backgroundColor: isTransparent ? null : '#111111',
+      logging: false,
+      imageTimeout: 5000
     });
-    document.body.removeChild(off);
-    const blob=await new Promise(r=>c.toBlob(r,'image/png',1.0));
-    const url=URL.createObjectURL(blob);
-    const a=document.createElement('a');
-    a.href=url;
+
+    document.body.removeChild(wrapper);
+
+    const blob = await new Promise(r => c.toBlob(r, 'image/png', 1.0));
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
     const suffix = isTransparent ? '_transparent' : '';
-    a.download=`slide_${String(i+1).padStart(2,'0')}_${SLIDES[i].type}${suffix}.png`;
+    a.download = `slide_${String(i+1).padStart(2,'0')}_${SLIDES[i].type}${suffix}.png`;
     a.click();
     URL.revokeObjectURL(url);
-    icon.textContent = isTransparent ? '✓ (transparent)' : '✓';
+    icon.textContent = isTransparent ? '✓ transparent' : '✓';
     row.classList.add('done');
+
   }catch(e){
     icon.textContent='✗';
-    console.error('Download error',e);
+    console.error('Download error slide', i, e);
   }finally{
     SSZ=prev;
     calcSz();
