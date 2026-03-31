@@ -805,7 +805,7 @@ function normSlide(s, i) {
     eyebrow:(s.eyebrow||'KEY INSIGHT').replace(/\s*\d+\s*\/\s*\d+/g,'').trim(),
     headline:s.headline||'', body:s.body||'', tip:s.tipBox||s.tip||'', stat:s.stat||'', statLabel:s.statLabel||''};
   if (s.type==='summary') return {...base, imgPrompt:s.imgPrompt||'', type:'summary', headline:s.headline||'THE *TAKEAWAY*', items:s.listItems||s.items||[]};
-  if (s.type==='cta')     return {...base, imgPrompt:s.imgPrompt||'', type:'cta', headline:s.headline||'SAVE THIS', cta1:s.cta1||'📌 Save this — you\'ll want this later', cta2:s.cta2||'🔔 Follow @meshminds3d'};
+  if (s.type==='cta')     return {...base, imgPrompt:s.imgPrompt||'', type:'cta', headline:s.headline||'YOU FOUND THE *MONEY* PRINT', cta1:s.cta1||'📌 Save this — you\'ll want this later', cta2:s.cta2||'🔔 Follow @meshminds3d'};
   if (s.type==='comparison') return {...base, imgPrompt:s.imgPrompt||'', type:'comparison',
     eyebrow:s.eyebrow||'THE DIFFERENCE', headline:s.headline||'',
     left_label:s.left_label||'BEFORE', left_value:s.left_value||'',  left_sub:s.left_sub||'',
@@ -1034,20 +1034,24 @@ function mkSlide(s,w,h){
       </div>`;
 
   } else if(s.type==='cta'){
-    const h1S=sz('h1',s.fs||1,w),bpS=sz('btnp',s.fs||1,w),bsS=sz('btns',s.fs||1,w);
-    inner=`<div style="position:absolute;inset:0;background:linear-gradient(150deg,#111 0%,#1e0a00 50%,#111 100%);z-index:0"></div>
-      <div style="position:absolute;inset:0;background:radial-gradient(ellipse at 50% 50%,rgba(255,107,0,.25) 0%,transparent 65%);z-index:2;pointer-events:none"></div>
-      <div style="position:absolute;inset:0;z-index:3;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;padding:${PAD}px;gap:0">
-        <div ${_dg('cta-hl',EXP)} style="display:inline-block;margin-bottom:${Math.round(h*.055)}px;${_os(s,'cta-hl',w)}">
-          <div ${_ce('headline',EXP)} style="font-family:'Bebas Neue';font-size:${h1S}px;line-height:.9;color:#fff;">${hl(s.headline||'SAVE THIS',OR)}</div>
+    const h1S=Math.round(sz('h1',s.fs||1,w)*1.15);
+    const bpS=sz('btnp',s.fs||1,w), bsS=sz('btns',s.fs||1,w);
+    const labelS=Math.round(sz('body',s.fs||1,w)*.8);
+    inner=`
+      <div style="position:absolute;inset:0;background:#0e0e0e;z-index:0"></div>
+      <div style="position:absolute;top:0;left:0;right:0;height:${Math.round(h*.006)}px;background:${OR};z-index:4"></div>
+      <div style="position:absolute;inset:0;background:radial-gradient(ellipse at 50% 100%,rgba(255,107,0,.2) 0%,transparent 58%);z-index:1;pointer-events:none"></div>
+      <div style="position:absolute;inset:0;z-index:3;display:flex;flex-direction:column;justify-content:flex-end;padding:${PAD}px ${PAD}px ${Math.round(h*.13)}px;">
+        <div ${_dg('cta-hl',EXP)} style="${_os(s,'cta-hl',w)};margin-bottom:${Math.round(h*.05)}px;">
+          <div style="font-size:${labelS}px;color:${OR};font-weight:800;letter-spacing:3px;text-transform:uppercase;margin-bottom:${Math.round(h*.015)}px;pointer-events:none">Save this post</div>
+          <div ${_ce('headline',EXP)} style="font-family:'Bebas Neue';font-size:${h1S}px;line-height:.88;color:#fff;letter-spacing:2px;word-break:break-word;">${hl(s.headline||'YOU FOUND THE *MONEY* PRINT',OR)}</div>
         </div>
-        <div ${_dg('cta-btns',EXP)} style="display:flex;flex-direction:column;gap:${Math.round(h*.022)}px;width:100%;${_os(s,'cta-btns',w)}">
-          <div ${_ce('cta1',EXP)} style="background:${OR};color:#000;padding:${Math.round(h*.03)}px ${Math.round(w*.04)}px;border-radius:5px;font-size:${bpS}px;font-weight:900;letter-spacing:1px">${s.cta1||'📌 Save this'}</div>
-          <div ${_ce('cta2',EXP)} style="border:2px solid rgba(255,255,255,.15);color:rgba(255,255,255,.5);padding:${Math.round(h*.025)}px ${Math.round(w*.04)}px;border-radius:5px;font-size:${bsS}px;font-weight:600">${s.cta2||'🔔 Follow @meshminds3d'}</div>
+        <div ${_dg('cta-btns',EXP)} style="display:flex;flex-direction:column;gap:${Math.round(h*.018)}px;${_os(s,'cta-btns',w)}">
+          <div ${_ce('cta1',EXP)} style="background:${OR};color:#000;padding:${Math.round(h*.028)}px ${Math.round(w*.05)}px;border-radius:6px;font-size:${bpS}px;font-weight:900;letter-spacing:.5px;text-align:center;">${s.cta1||'📌 Save this — you\'ll want this later'}</div>
+          <div ${_ce('cta2',EXP)} style="text-align:center;font-size:${bsS}px;color:rgba(255,255,255,.4);font-weight:600;padding:${Math.round(h*.01)}px 0;">${s.cta2||'🔔 Follow @meshminds3d — new profitable prints every week'}</div>
         </div>
-        <div style="font-size:${Math.round(w*.024)}px;color:rgba(255,255,255,.22);letter-spacing:2px;margin-top:${Math.round(h*.045)}px;pointer-events:none">by <strong style="color:${OR}">@meshminds3d</strong></div>
-      </div>`;
-
+      </div>
+      <div style="position:absolute;bottom:${Math.round(h*.044)}px;right:${PAD}px;z-index:4;font-size:${Math.round(w*.022)}px;color:rgba(255,255,255,.18);letter-spacing:2px;pointer-events:none">@meshminds3d</div>`;
   }
 
   // ── COMPARISON ──────────────────────────────────────────
