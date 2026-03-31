@@ -308,27 +308,20 @@ html,body{height:100%;overflow:hidden;font-family:'DM Sans',sans-serif;backgroun
 .revert-btn:hover{border-color:#ef4444;color:#ef4444;}
 .revert-btn:disabled{opacity:.3;cursor:not-allowed;}
 
-/* Image pan/zoom editor */
-#imgEditOverlay{position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:9998;display:none;align-items:center;justify-content:center;flex-direction:column;gap:16px;}
-#imgEditOverlay.on{display:flex;}
-.img-edit-card{background:#1a1a1a;border-radius:12px;padding:20px;display:flex;flex-direction:column;gap:14px;width:340px;box-shadow:0 24px 64px rgba(0,0,0,.5);}
-.img-edit-title{font-family:'Bebas Neue';font-size:18px;letter-spacing:2px;color:var(--or);}
-.img-edit-canvas{width:300px;height:360px;border-radius:8px;overflow:hidden;position:relative;background:#111;cursor:grab;border:1.5px solid rgba(255,255,255,.1);}
-.img-edit-canvas.grabbing{cursor:grabbing;}
-.img-edit-canvas img{position:absolute;transform-origin:center center;pointer-events:none;user-select:none;}
-.img-edit-controls{display:flex;flex-direction:column;gap:8px;}
-.img-edit-row{display:flex;align-items:center;gap:10px;}
-.img-edit-row label{font-size:10px;font-weight:700;letter-spacing:1.5px;color:rgba(255,255,255,.4);text-transform:uppercase;min-width:44px;}
-.img-edit-row input[type=range]{flex:1;accent-color:var(--or);}
-.img-edit-row .val{font-size:11px;color:var(--or);font-weight:700;min-width:36px;text-align:right;}
-.img-edit-actions{display:flex;gap:8px;}
-.img-edit-btn{flex:1;padding:9px;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer;border:none;font-family:'DM Sans';transition:all .15s;}
-.img-edit-btn.apply{background:var(--or);color:#000;}
-.img-edit-btn.apply:hover{background:#e55f00;}
-.img-edit-btn.cancel{background:rgba(255,255,255,.08);color:rgba(255,255,255,.6);}
-.img-edit-btn.cancel:hover{background:rgba(255,255,255,.14);}
-.img-edit-btn.reset{background:transparent;color:rgba(255,255,255,.35);border:1px solid rgba(255,255,255,.12);}
-.img-edit-btn.reset:hover{color:rgba(255,255,255,.6);border-color:rgba(255,255,255,.25);}
+/* Image pan/zoom — inline toolbar above slide */
+#imgEditBar{display:none;align-items:center;gap:10px;background:#1a1a1a;border:1.5px solid rgba(255,107,0,.4);border-radius:8px;padding:8px 12px;flex-shrink:0;}
+#imgEditBar.on{display:flex;}
+.ieb-label{font-size:10px;font-weight:800;letter-spacing:2px;color:var(--or);text-transform:uppercase;white-space:nowrap;}
+.ieb-slider{flex:1;accent-color:var(--or);min-width:60px;}
+.ieb-val{font-size:10px;color:var(--or);font-weight:700;min-width:30px;text-align:right;white-space:nowrap;}
+.ieb-sep{width:1px;height:18px;background:rgba(255,255,255,.1);flex-shrink:0;}
+.ieb-btn{padding:5px 10px;border-radius:5px;font-size:11px;font-weight:700;cursor:pointer;border:none;font-family:'DM Sans';transition:all .15s;white-space:nowrap;}
+.ieb-btn.done{background:var(--or);color:#000;}
+.ieb-btn.done:hover{background:#e55f00;}
+.ieb-btn.reset{background:rgba(255,255,255,.08);color:rgba(255,255,255,.5);}
+.ieb-btn.reset:hover{background:rgba(255,255,255,.15);}
+#sf.img-edit-mode{cursor:grab;outline:2px solid var(--or);outline-offset:2px;}
+#sf.img-edit-mode.grabbing{cursor:grabbing;}
 </style>
 </head>
 <body>
@@ -385,6 +378,16 @@ html,body{height:100%;overflow:hidden;font-family:'DM Sans',sans-serif;backgroun
 
   <!-- CENTER: PREVIEW -->
   <div id="ctr">
+    <div id="imgEditBar">
+      <span class="ieb-label">🖼 Image</span>
+      <span class="ieb-sep"></span>
+      <span class="ieb-label" style="font-size:9px;opacity:.6">ZOOM</span>
+      <input type="range" class="ieb-slider" id="imgEditZoom" min="50" max="300" value="100" oninput="imgEditLiveUpdate()">
+      <span class="ieb-val" id="imgEditZoomVal">100%</span>
+      <span class="ieb-sep"></span>
+      <button class="ieb-btn reset" onclick="imgEditReset()">↺ Reset</button>
+      <button class="ieb-btn done" onclick="imgEditClose()">✓ Done</button>
+    </div>
     <div id="sf">
       <div id="editHint">✏️ Click text to edit · Drag to reposition</div>
       <div id="slideEl">
@@ -1357,95 +1360,86 @@ async function doReviseSlides() {
 
 
 // ═══════════════════════════════════════════════════
-// IMAGE PAN / ZOOM EDITOR
+// IMAGE PAN / ZOOM — INLINE ON SLIDE CANVAS
 // ═══════════════════════════════════════════════════
-let _imgEditIdx = -1;  // which slide we're editing
-let _imgEditDrag = null;
+let _imgEditIdx = -1;
+let _imgEditActive = false;
+let _imgDrag = null;
 
 function imgEditOpen(idx) {
   _imgEditIdx = idx;
+  _imgEditActive = true;
   const s = SLIDES[idx];
   if (!s || !s.bgImg) return;
 
-  // Restore saved transform or default
   const t = s.bgTransform || { zoom: 100, x: 0, y: 0 };
-  document.getElementById('imgEditImg').src = s.bgImg;
   document.getElementById('imgEditZoom').value = t.zoom;
-  document.getElementById('imgEditX').value = t.x;
-  document.getElementById('imgEditY').value = t.y;
-  imgEditUpdate();
-  document.getElementById('imgEditOverlay').classList.add('on');
+  document.getElementById('imgEditZoomVal').textContent = t.zoom + '%';
 
-  // Drag to pan
-  const canvas = document.getElementById('imgEditCanvas');
-  canvas.onmousedown = imgEditDragStart;
-  canvas.ontouchstart = imgEditDragStart;
+  // Show toolbar, activate slide mode
+  document.getElementById('imgEditBar').classList.add('on');
+  const sf = document.getElementById('sf');
+  sf.classList.add('img-edit-mode');
+
+  // Attach drag handler to slide frame
+  sf.addEventListener('mousedown', imgEditDragStart);
+  sf.addEventListener('touchstart', imgEditDragStart, { passive: false });
+  sf.addEventListener('wheel', imgEditWheel, { passive: false });
+
+  // Hide the edit hint
+  document.getElementById('editHint').style.display = 'none';
 }
 
-function imgEditUpdate() {
+function imgEditLiveUpdate() {
+  if (_imgEditIdx < 0) return;
   const zoom = parseInt(document.getElementById('imgEditZoom').value);
-  const x = parseInt(document.getElementById('imgEditX').value);
-  const y = parseInt(document.getElementById('imgEditY').value);
   document.getElementById('imgEditZoomVal').textContent = zoom + '%';
-  document.getElementById('imgEditXVal').textContent = (x > 0 ? '+' : '') + x + '%';
-  document.getElementById('imgEditYVal').textContent = (y > 0 ? '+' : '') + y + '%';
-  const img = document.getElementById('imgEditImg');
-  // Fill the preview container (300x360) with the image at zoom level
-  img.style.width = zoom + '%';
-  img.style.height = zoom + '%';
-  img.style.objectFit = 'cover';
-  img.style.left = '50%';
-  img.style.top = '50%';
-  img.style.transform = `translate(calc(-50% + ${x}%), calc(-50% + ${y}%))`;
-}
-
-function imgEditReset() {
-  document.getElementById('imgEditZoom').value = 100;
-  document.getElementById('imgEditX').value = 0;
-  document.getElementById('imgEditY').value = 0;
-  imgEditUpdate();
-}
-
-function imgEditClose() {
-  document.getElementById('imgEditOverlay').classList.remove('on');
-  _imgEditIdx = -1;
-}
-
-function imgEditApply() {
-  if (_imgEditIdx < 0 || !SLIDES[_imgEditIdx]) return;
-  SLIDES[_imgEditIdx].bgTransform = {
-    zoom: parseInt(document.getElementById('imgEditZoom').value),
-    x: parseInt(document.getElementById('imgEditX').value),
-    y: parseInt(document.getElementById('imgEditY').value),
-  };
+  // Live update the slide without saving yet
+  if (!SLIDES[_imgEditIdx].bgTransform) SLIDES[_imgEditIdx].bgTransform = { zoom: 100, x: 0, y: 0 };
+  SLIDES[_imgEditIdx].bgTransform.zoom = zoom;
   refresh();
-  buildEditor(SLIDES[_imgEditIdx]);
-  imgEditClose();
 }
 
-// Drag to pan inside the canvas
-function imgEditDragStart(e) {
+function imgEditWheel(e) {
+  if (!_imgEditActive || _imgEditIdx < 0) return;
   e.preventDefault();
-  const canvas = document.getElementById('imgEditCanvas');
-  canvas.classList.add('grabbing');
-  const startX = e.clientX ?? e.touches[0].clientX;
-  const startY = e.clientY ?? e.touches[0].clientY;
-  const startPanX = parseInt(document.getElementById('imgEditX').value);
-  const startPanY = parseInt(document.getElementById('imgEditY').value);
+  const s = SLIDES[_imgEditIdx];
+  if (!s.bgTransform) s.bgTransform = { zoom: 100, x: 0, y: 0 };
+  const delta = e.deltaY > 0 ? -5 : 5;
+  s.bgTransform.zoom = Math.max(50, Math.min(300, s.bgTransform.zoom + delta));
+  document.getElementById('imgEditZoom').value = s.bgTransform.zoom;
+  document.getElementById('imgEditZoomVal').textContent = s.bgTransform.zoom + '%';
+  refresh();
+}
+
+function imgEditDragStart(e) {
+  if (!_imgEditActive || _imgEditIdx < 0) return;
+  // Don't intercept clicks on contenteditable or buttons
+  if (e.target.getAttribute && (e.target.getAttribute('contenteditable') || e.target.tagName === 'BUTTON')) return;
+  e.preventDefault();
+  const sf = document.getElementById('sf');
+  sf.classList.add('grabbing');
+
+  const startX = e.clientX ?? e.touches?.[0]?.clientX;
+  const startY = e.clientY ?? e.touches?.[0]?.clientY;
+  const s = SLIDES[_imgEditIdx];
+  if (!s.bgTransform) s.bgTransform = { zoom: 100, x: 0, y: 0 };
+  const startPX = s.bgTransform.x;
+  const startPY = s.bgTransform.y;
 
   function onMove(ev) {
     const cx = ev.clientX ?? ev.touches?.[0]?.clientX ?? startX;
     const cy = ev.clientY ?? ev.touches?.[0]?.clientY ?? startY;
-    const dx = Math.round((cx - startX) / 2);
-    const dy = Math.round((cy - startY) / 2);
-    const newX = Math.max(-100, Math.min(100, startPanX + dx));
-    const newY = Math.max(-100, Math.min(100, startPanY + dy));
-    document.getElementById('imgEditX').value = newX;
-    document.getElementById('imgEditY').value = newY;
-    imgEditUpdate();
+    // Scale drag by zoom level so faster movement at higher zoom
+    const scale = (s.bgTransform.zoom / 100) * 0.4;
+    const dx = Math.round((cx - startX) / scale);
+    const dy = Math.round((cy - startY) / scale);
+    s.bgTransform.x = Math.max(-100, Math.min(100, startPX + dx));
+    s.bgTransform.y = Math.max(-100, Math.min(100, startPY + dy));
+    refresh();
   }
   function onUp() {
-    canvas.classList.remove('grabbing');
+    sf.classList.remove('grabbing');
     document.removeEventListener('mousemove', onMove);
     document.removeEventListener('mouseup', onUp);
     document.removeEventListener('touchmove', onMove);
@@ -1455,6 +1449,26 @@ function imgEditDragStart(e) {
   document.addEventListener('mouseup', onUp);
   document.addEventListener('touchmove', onMove, { passive: false });
   document.addEventListener('touchend', onUp);
+}
+
+function imgEditReset() {
+  if (_imgEditIdx < 0) return;
+  SLIDES[_imgEditIdx].bgTransform = { zoom: 100, x: 0, y: 0 };
+  document.getElementById('imgEditZoom').value = 100;
+  document.getElementById('imgEditZoomVal').textContent = '100%';
+  refresh();
+}
+
+function imgEditClose() {
+  const sf = document.getElementById('sf');
+  sf.removeEventListener('mousedown', imgEditDragStart);
+  sf.removeEventListener('touchstart', imgEditDragStart);
+  sf.removeEventListener('wheel', imgEditWheel);
+  sf.classList.remove('img-edit-mode', 'grabbing');
+  document.getElementById('imgEditBar').classList.remove('on');
+  document.getElementById('editHint').style.display = '';
+  _imgEditActive = false;
+  _imgEditIdx = -1;
 }
 
 // ═══════════════════════════════════════════════════
@@ -1584,37 +1598,7 @@ applyWidths();
 calcSz();
 </script>
 
-<!-- Image pan/zoom editor -->
-<div id="imgEditOverlay">
-  <div class="img-edit-card">
-    <div class="img-edit-title">Adjust Image</div>
-    <div class="img-edit-canvas" id="imgEditCanvas">
-      <img id="imgEditImg" src="">
-    </div>
-    <div class="img-edit-controls">
-      <div class="img-edit-row">
-        <label>Zoom</label>
-        <input type="range" id="imgEditZoom" min="50" max="300" value="100" oninput="imgEditUpdate()">
-        <span class="val" id="imgEditZoomVal">100%</span>
-      </div>
-      <div class="img-edit-row">
-        <label>X</label>
-        <input type="range" id="imgEditX" min="-100" max="100" value="0" oninput="imgEditUpdate()">
-        <span class="val" id="imgEditXVal">0%</span>
-      </div>
-      <div class="img-edit-row">
-        <label>Y</label>
-        <input type="range" id="imgEditY" min="-100" max="100" value="0" oninput="imgEditUpdate()">
-        <span class="val" id="imgEditYVal">0%</span>
-      </div>
-    </div>
-    <div class="img-edit-actions">
-      <button class="img-edit-btn reset" onclick="imgEditReset()">↺ Reset</button>
-      <button class="img-edit-btn cancel" onclick="imgEditClose()">Cancel</button>
-      <button class="img-edit-btn apply" onclick="imgEditApply()">Apply →</button>
-    </div>
-  </div>
-</div>
+<!-- Image pan/zoom inline toolbar (shown above slide) -->
 
 <!-- Restore tabs shown when panels collapsed -->
 <div class="restore-tab" id="rtChat" onclick="togglePanel('chat')" title="Show chat">AI</div>
