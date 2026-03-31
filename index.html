@@ -621,7 +621,6 @@ function showPlanCard(plan, topic) {
           </div>` : ''}
 
           <div class="plan-actions">
-            <button class="pa-btn confirm" onclick="doGenerate()">✓ Generate Slides</button>
             <button class="pa-btn change" onclick="showAngleEditor('${topic.replace(/'/g,"\\'")}')">↺ Change Angle</button>
           </div>
 
@@ -632,6 +631,7 @@ function showPlanCard(plan, topic) {
 
   msgs.appendChild(card);
   msgs.scrollTop = msgs.scrollHeight;
+  setTimeout(() => doGenerate(), 400);
 }
 
 // ═══════════════════════════════════════════════════
@@ -1294,7 +1294,7 @@ async function downloadSlide(i){
   try{
     SSZ=EW;
     const off=document.createElement('div');
-    off.style.cssText=`position:fixed;left:-${EW+200}px;top:0;width:${EW}px;height:${EH}px;overflow:hidden;visibility:hidden;`;
+    off.style.cssText=`position:fixed;top:0;left:0;width:${EW}px;height:${EH}px;overflow:hidden;opacity:0.01;z-index:-9999;pointer-events:none;`;
     off.innerHTML=mkSlide(SLIDES[i],EW,EH);
 
     if (isTransparent) {
