@@ -750,6 +750,17 @@ function imgSection(i) {
         <div class="img-upload-btn" onclick="document.getElementById('imgInput${i}').click()" style="opacity:.7">📁 Override with image</div>
       </div>
       <input type="file" id="imgInput${i}" accept="image/*" style="display:none" onchange="loadImg(${i},this)">
+      <div class="divl"></div>
+      <div class="esec">Export Options</div>
+      <div class="fld" style="padding:0 0 4px">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none;">
+          <div class="tog-wrap" onclick="toggleTransparent(${i})" id="togTrans${i}" style="width:36px;height:20px;border-radius:10px;background:${s._transparent?'var(--or)':'rgba(255,255,255,.15)'};position:relative;flex-shrink:0;cursor:pointer;transition:background .2s">
+            <div style="position:absolute;top:2px;left:${s._transparent?'18px':'2px'};width:16px;height:16px;border-radius:8px;background:#fff;transition:left .2s"></div>
+          </div>
+          <span style="font-size:11px;font-weight:600;color:${s._transparent?'var(--or)':'var(--g5)'}">Transparent background export</span>
+        </label>
+        <div style="font-size:10px;color:var(--g4);margin-top:4px;line-height:1.4">When on, this slide exports as PNG with no background — overlay onto your video in CapCut or any editor.</div>
+      </div>
       <div class="divl"></div>`;
   }
   return `<div class="esec">Background Image</div>
@@ -763,6 +774,17 @@ function imgSection(i) {
       }
     </div>
     <input type="file" id="imgInput${i}" accept="image/*" style="display:none" onchange="loadImg(${i},this)">
+    <div class="divl"></div>
+    <div class="esec">Export Options</div>
+    <div class="fld" style="padding:0 0 4px">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none;">
+        <div class="tog-wrap" onclick="toggleTransparent(${i})" id="togTrans${i}" style="width:36px;height:20px;border-radius:10px;background:${s._transparent?'var(--or)':'rgba(255,255,255,.15)'};position:relative;flex-shrink:0;cursor:pointer;transition:background .2s">
+          <div style="position:absolute;top:2px;left:${s._transparent?'18px':'2px'};width:16px;height:16px;border-radius:8px;background:#fff;transition:left .2s"></div>
+        </div>
+        <span style="font-size:11px;font-weight:600;color:${s._transparent?'var(--or)':'var(--g5)'}">Transparent background export</span>
+      </label>
+      <div style="font-size:10px;color:var(--g4);margin-top:4px;line-height:1.4">When on, this slide exports as PNG with no background — overlay onto your video in CapCut or any editor.</div>
+    </div>
     <div class="divl"></div>`;
 }
 
@@ -1142,10 +1164,11 @@ async function doExp(){
     row.className = 'dl-row';
     row.id = 'dlrow'+i;
     const label = (s.headline||s.type||'').replace(/\*([^*]+)\*/g,'$1').split('\n')[0].slice(0,22)||'Slide '+(i+1);
+    const transBadge = s._transparent ? ' <span style="color:var(--or);font-size:9px;letter-spacing:1px;font-weight:700">TRANSPARENT</span>' : '';
     row.innerHTML = `
       <div class="dl-thumb" id="dlthumb${i}"></div>
       <div class="dl-info">
-        <div class="dl-name">${String(i+1).padStart(2,'0')} — ${label}</div>
+        <div class="dl-name">${String(i+1).padStart(2,'0')} — ${label}${transBadge}</div>
         <div class="dl-type">${s.type}</div>
       </div>
       <div class="dl-icon" id="dlicon${i}">↓</div>`;
@@ -1174,27 +1197,55 @@ async function downloadSlide(i){
   row.style.pointerEvents='none';
 
   const prev=SSZ;
+  const isTransparent = !!SLIDES[i]._transparent;
   try{
     SSZ=EW;
     const off=document.createElement('div');
     off.style.cssText=`position:fixed;left:-${EW+200}px;top:0;width:${EW}px;height:${EH}px;overflow:hidden;visibility:hidden;`;
     off.innerHTML=mkSlide(SLIDES[i],EW,EH);
+
+    if (isTransparent) {
+      // Hide all background layers: the root bg color, bg image, gradient overlays
+      const slide = off.firstElementChild;
+      if (slide) {
+        slide.style.background = 'transparent';
+        // Hide any z-index:0 or z-index:1 background divs (gradients, bg color)
+        slide.querySelectorAll('div').forEach(d => {
+          const z = parseInt(window.getComputedStyle(d).zIndex) || 0;
+          const bg = d.style.background || d.style.backgroundImage || '';
+          if (z <= 1 && bg) d.style.background = 'transparent';
+          // Also hide bg image containers
+          if (d.style.backgroundImage && d.style.backgroundImage !== 'none') {
+            d.style.backgroundImage = 'none';
+          }
+        });
+        // Remove any background images
+        slide.querySelectorAll('img').forEach(img => {
+          if (img.classList.contains('bg-img') || img.style.objectFit === 'cover') {
+            img.style.display = 'none';
+          }
+        });
+      }
+    }
+
     document.body.appendChild(off);
-    await slp(30);
+    await slp(50);
     const c=await html2canvas(off.firstElementChild,{
       width:EW,height:EH,scale:1,
       useCORS:true,allowTaint:true,
-      backgroundColor:'#111',logging:false,imageTimeout:0
+      backgroundColor: isTransparent ? null : '#111',
+      logging:false,imageTimeout:0
     });
     document.body.removeChild(off);
-    const blob=await new Promise(r=>c.toBlob(r,'image/png',0.95));
+    const blob=await new Promise(r=>c.toBlob(r,'image/png',1.0));
     const url=URL.createObjectURL(blob);
     const a=document.createElement('a');
     a.href=url;
-    a.download=`slide_${String(i+1).padStart(2,'0')}_${SLIDES[i].type}.png`;
+    const suffix = isTransparent ? '_transparent' : '';
+    a.download=`slide_${String(i+1).padStart(2,'0')}_${SLIDES[i].type}${suffix}.png`;
     a.click();
     URL.revokeObjectURL(url);
-    icon.textContent='✓';
+    icon.textContent = isTransparent ? '✓ (transparent)' : '✓';
     row.classList.add('done');
   }catch(e){
     icon.textContent='✗';
@@ -1259,6 +1310,16 @@ async function doReviseSlides() {
   setBusy(false);
 }
 
+
+
+// ═══════════════════════════════════════════════════
+// TRANSPARENT EXPORT TOGGLE
+// ═══════════════════════════════════════════════════
+function toggleTransparent(i) {
+  if (!SLIDES[i]) return;
+  SLIDES[i]._transparent = !SLIDES[i]._transparent;
+  buildEditor(SLIDES[i]); // rebuild editor to update toggle UI
+}
 
 // ═══════════════════════════════════════════════════
 // REVERT SLIDE
