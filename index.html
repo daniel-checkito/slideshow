@@ -307,6 +307,28 @@ html,body{height:100%;overflow:hidden;font-family:'DM Sans',sans-serif;backgroun
 .revert-btn{display:flex;align-items:center;justify-content:center;gap:5px;padding:6px 10px;background:#fff;border:1.5px solid var(--g2);border-radius:5px;font-size:11px;font-weight:700;color:var(--g5);cursor:pointer;transition:all .15s;width:100%;margin-top:4px;}
 .revert-btn:hover{border-color:#ef4444;color:#ef4444;}
 .revert-btn:disabled{opacity:.3;cursor:not-allowed;}
+
+/* Image pan/zoom editor */
+#imgEditOverlay{position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:9998;display:none;align-items:center;justify-content:center;flex-direction:column;gap:16px;}
+#imgEditOverlay.on{display:flex;}
+.img-edit-card{background:#1a1a1a;border-radius:12px;padding:20px;display:flex;flex-direction:column;gap:14px;width:340px;box-shadow:0 24px 64px rgba(0,0,0,.5);}
+.img-edit-title{font-family:'Bebas Neue';font-size:18px;letter-spacing:2px;color:var(--or);}
+.img-edit-canvas{width:300px;height:360px;border-radius:8px;overflow:hidden;position:relative;background:#111;cursor:grab;border:1.5px solid rgba(255,255,255,.1);}
+.img-edit-canvas.grabbing{cursor:grabbing;}
+.img-edit-canvas img{position:absolute;transform-origin:center center;pointer-events:none;user-select:none;}
+.img-edit-controls{display:flex;flex-direction:column;gap:8px;}
+.img-edit-row{display:flex;align-items:center;gap:10px;}
+.img-edit-row label{font-size:10px;font-weight:700;letter-spacing:1.5px;color:rgba(255,255,255,.4);text-transform:uppercase;min-width:44px;}
+.img-edit-row input[type=range]{flex:1;accent-color:var(--or);}
+.img-edit-row .val{font-size:11px;color:var(--or);font-weight:700;min-width:36px;text-align:right;}
+.img-edit-actions{display:flex;gap:8px;}
+.img-edit-btn{flex:1;padding:9px;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer;border:none;font-family:'DM Sans';transition:all .15s;}
+.img-edit-btn.apply{background:var(--or);color:#000;}
+.img-edit-btn.apply:hover{background:#e55f00;}
+.img-edit-btn.cancel{background:rgba(255,255,255,.08);color:rgba(255,255,255,.6);}
+.img-edit-btn.cancel:hover{background:rgba(255,255,255,.14);}
+.img-edit-btn.reset{background:transparent;color:rgba(255,255,255,.35);border:1px solid rgba(255,255,255,.12);}
+.img-edit-btn.reset:hover{color:rgba(255,255,255,.6);border-color:rgba(255,255,255,.25);}
 </style>
 </head>
 <body>
@@ -768,8 +790,11 @@ function imgSection(i) {
       <div class="img-prompt"><strong>AI Prompt — copy to Nanabana</strong>${prompt||'No prompt generated'}</div>
       ${prompt && prompt.toLowerCase()!=='none' ? `<button class="copy-prompt-btn" id="cpbtn${i}" onclick="event.stopPropagation();copyPrompt(${i})">📋 Copy prompt</button>` : ''}
       ${hasImg
-        ? `<img class="img-preview" src="${s.bgImg||''}" onclick="event.stopPropagation();document.getElementById('imgInput${i}').click()">
-           <div class="img-clear" onclick="event.stopPropagation();clearImg(${i})">✕ Remove image</div>`
+        ? `<img class="img-preview" src="${s.bgImg||''}" onclick="event.stopPropagation();imgEditOpen(${i})">
+           <div style="display:flex;gap:5px;margin-top:2px">
+             <div class="img-upload-btn" style="flex:1;font-size:10px;padding:4px" onclick="event.stopPropagation();imgEditOpen(${i})">🔍 Zoom & Pan</div>
+             <div class="img-upload-btn" style="flex:1;font-size:10px;padding:4px;color:#ef4444" onclick="event.stopPropagation();clearImg(${i})">✕ Remove</div>
+           </div>`
         : `<div class="img-upload-btn">📁 Upload generated image</div>`
       }
     </div>
@@ -805,9 +830,12 @@ function loadImg(idx, input) {
   const reader = new FileReader();
   reader.onload = e => {
     SLIDES[idx].bgImg = e.target.result;
+    SLIDES[idx].bgTransform = { zoom: 100, x: 0, y: 0 }; // reset transform on new upload
     refresh();
     buildEditor(SLIDES[idx]);
     buildThumbs();
+    // Auto-open the pan/zoom editor right after upload
+    setTimeout(() => imgEditOpen(idx), 150);
   };
   reader.readAsDataURL(file);
 }
@@ -1005,7 +1033,7 @@ function mkSlide(s,w,h){
   const prog=((s.id+1)/SLIDES.length*100).toFixed(0);
   const pbH=Math.max(3,Math.round(w*.004)),PAD=Math.round(w*.08),dot=Math.round(w*.055);
   const bg=s.bgImg
-    ?`<div style="position:absolute;inset:0;background:url('${s.bgImg}') center/cover;z-index:0"></div><div style="position:absolute;inset:0;background:linear-gradient(to bottom,rgba(0,0,0,.08) 0%,rgba(0,0,0,.15) 30%,rgba(0,0,0,.65) 62%,rgba(0,0,0,.92) 82%,#111 100%);z-index:1"></div>`
+    ?`<div style="position:absolute;inset:0;overflow:hidden;z-index:0"><img src="${s.bgImg}" style="position:absolute;width:${(s.bgTransform&&s.bgTransform.zoom)||100}%;height:${(s.bgTransform&&s.bgTransform.zoom)||100}%;object-fit:cover;left:50%;top:50%;transform:translate(calc(-50% + ${(s.bgTransform&&s.bgTransform.x)||0}%),calc(-50% + ${(s.bgTransform&&s.bgTransform.y)||0}%));pointer-events:none;"></div><div style="position:absolute;inset:0;background:linear-gradient(to bottom,rgba(0,0,0,.08) 0%,rgba(0,0,0,.15) 30%,rgba(0,0,0,.65) 62%,rgba(0,0,0,.92) 82%,#111 100%);z-index:1"></div>`
     :`<div style="position:absolute;inset:0;background:linear-gradient(145deg,#1a1a1a,#0d0d0d);z-index:0"></div>`;
   const dots=`<div style="position:absolute;inset:0;background-image:radial-gradient(circle,rgba(255,255,255,.055) 1px,transparent 1px);background-size:${dot}px ${dot}px;z-index:2;pointer-events:none"></div>`;
   const pb=`<div style="position:absolute;bottom:0;left:0;height:${pbH}px;width:${prog}%;background:${OR};z-index:20"></div>`;
@@ -1327,6 +1355,108 @@ async function doReviseSlides() {
 
 
 
+
+// ═══════════════════════════════════════════════════
+// IMAGE PAN / ZOOM EDITOR
+// ═══════════════════════════════════════════════════
+let _imgEditIdx = -1;  // which slide we're editing
+let _imgEditDrag = null;
+
+function imgEditOpen(idx) {
+  _imgEditIdx = idx;
+  const s = SLIDES[idx];
+  if (!s || !s.bgImg) return;
+
+  // Restore saved transform or default
+  const t = s.bgTransform || { zoom: 100, x: 0, y: 0 };
+  document.getElementById('imgEditImg').src = s.bgImg;
+  document.getElementById('imgEditZoom').value = t.zoom;
+  document.getElementById('imgEditX').value = t.x;
+  document.getElementById('imgEditY').value = t.y;
+  imgEditUpdate();
+  document.getElementById('imgEditOverlay').classList.add('on');
+
+  // Drag to pan
+  const canvas = document.getElementById('imgEditCanvas');
+  canvas.onmousedown = imgEditDragStart;
+  canvas.ontouchstart = imgEditDragStart;
+}
+
+function imgEditUpdate() {
+  const zoom = parseInt(document.getElementById('imgEditZoom').value);
+  const x = parseInt(document.getElementById('imgEditX').value);
+  const y = parseInt(document.getElementById('imgEditY').value);
+  document.getElementById('imgEditZoomVal').textContent = zoom + '%';
+  document.getElementById('imgEditXVal').textContent = (x > 0 ? '+' : '') + x + '%';
+  document.getElementById('imgEditYVal').textContent = (y > 0 ? '+' : '') + y + '%';
+  const img = document.getElementById('imgEditImg');
+  // Fill the preview container (300x360) with the image at zoom level
+  img.style.width = zoom + '%';
+  img.style.height = zoom + '%';
+  img.style.objectFit = 'cover';
+  img.style.left = '50%';
+  img.style.top = '50%';
+  img.style.transform = `translate(calc(-50% + ${x}%), calc(-50% + ${y}%))`;
+}
+
+function imgEditReset() {
+  document.getElementById('imgEditZoom').value = 100;
+  document.getElementById('imgEditX').value = 0;
+  document.getElementById('imgEditY').value = 0;
+  imgEditUpdate();
+}
+
+function imgEditClose() {
+  document.getElementById('imgEditOverlay').classList.remove('on');
+  _imgEditIdx = -1;
+}
+
+function imgEditApply() {
+  if (_imgEditIdx < 0 || !SLIDES[_imgEditIdx]) return;
+  SLIDES[_imgEditIdx].bgTransform = {
+    zoom: parseInt(document.getElementById('imgEditZoom').value),
+    x: parseInt(document.getElementById('imgEditX').value),
+    y: parseInt(document.getElementById('imgEditY').value),
+  };
+  refresh();
+  buildEditor(SLIDES[_imgEditIdx]);
+  imgEditClose();
+}
+
+// Drag to pan inside the canvas
+function imgEditDragStart(e) {
+  e.preventDefault();
+  const canvas = document.getElementById('imgEditCanvas');
+  canvas.classList.add('grabbing');
+  const startX = e.clientX ?? e.touches[0].clientX;
+  const startY = e.clientY ?? e.touches[0].clientY;
+  const startPanX = parseInt(document.getElementById('imgEditX').value);
+  const startPanY = parseInt(document.getElementById('imgEditY').value);
+
+  function onMove(ev) {
+    const cx = ev.clientX ?? ev.touches?.[0]?.clientX ?? startX;
+    const cy = ev.clientY ?? ev.touches?.[0]?.clientY ?? startY;
+    const dx = Math.round((cx - startX) / 2);
+    const dy = Math.round((cy - startY) / 2);
+    const newX = Math.max(-100, Math.min(100, startPanX + dx));
+    const newY = Math.max(-100, Math.min(100, startPanY + dy));
+    document.getElementById('imgEditX').value = newX;
+    document.getElementById('imgEditY').value = newY;
+    imgEditUpdate();
+  }
+  function onUp() {
+    canvas.classList.remove('grabbing');
+    document.removeEventListener('mousemove', onMove);
+    document.removeEventListener('mouseup', onUp);
+    document.removeEventListener('touchmove', onMove);
+    document.removeEventListener('touchend', onUp);
+  }
+  document.addEventListener('mousemove', onMove);
+  document.addEventListener('mouseup', onUp);
+  document.addEventListener('touchmove', onMove, { passive: false });
+  document.addEventListener('touchend', onUp);
+}
+
 // ═══════════════════════════════════════════════════
 // TRANSPARENT EXPORT TOGGLE
 // ═══════════════════════════════════════════════════
@@ -1453,6 +1583,39 @@ new ResizeObserver(()=>{calcSz();if(SLIDES.length)refresh();}).observe(document.
 applyWidths();
 calcSz();
 </script>
+
+<!-- Image pan/zoom editor -->
+<div id="imgEditOverlay">
+  <div class="img-edit-card">
+    <div class="img-edit-title">Adjust Image</div>
+    <div class="img-edit-canvas" id="imgEditCanvas">
+      <img id="imgEditImg" src="">
+    </div>
+    <div class="img-edit-controls">
+      <div class="img-edit-row">
+        <label>Zoom</label>
+        <input type="range" id="imgEditZoom" min="50" max="300" value="100" oninput="imgEditUpdate()">
+        <span class="val" id="imgEditZoomVal">100%</span>
+      </div>
+      <div class="img-edit-row">
+        <label>X</label>
+        <input type="range" id="imgEditX" min="-100" max="100" value="0" oninput="imgEditUpdate()">
+        <span class="val" id="imgEditXVal">0%</span>
+      </div>
+      <div class="img-edit-row">
+        <label>Y</label>
+        <input type="range" id="imgEditY" min="-100" max="100" value="0" oninput="imgEditUpdate()">
+        <span class="val" id="imgEditYVal">0%</span>
+      </div>
+    </div>
+    <div class="img-edit-actions">
+      <button class="img-edit-btn reset" onclick="imgEditReset()">↺ Reset</button>
+      <button class="img-edit-btn cancel" onclick="imgEditClose()">Cancel</button>
+      <button class="img-edit-btn apply" onclick="imgEditApply()">Apply →</button>
+    </div>
+  </div>
+</div>
+
 <!-- Restore tabs shown when panels collapsed -->
 <div class="restore-tab" id="rtChat" onclick="togglePanel('chat')" title="Show chat">AI</div>
 <div class="restore-tab" id="rtEd" onclick="togglePanel('ed')" title="Show editor">EDIT</div>
