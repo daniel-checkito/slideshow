@@ -621,7 +621,8 @@ function showPlanCard(plan, topic) {
           </div>` : ''}
 
           <div class="plan-actions">
-            <button class="pa-btn change" style="flex:1" onclick="showAngleEditor('${topic.replace(/'/g,"\\'")}')">↺ Change Angle</button>
+            <button class="pa-btn confirm" onclick="doGenerate()">✓ Generate Slides</button>
+            <button class="pa-btn change" onclick="showAngleEditor('${topic.replace(/'/g,"\\'")}')">↺ Change Angle</button>
           </div>
 
         </div>
@@ -631,7 +632,6 @@ function showPlanCard(plan, topic) {
 
   msgs.appendChild(card);
   msgs.scrollTop = msgs.scrollHeight;
-  setTimeout(() => doGenerate(), 400);
 }
 
 // ═══════════════════════════════════════════════════
@@ -757,69 +757,77 @@ function imgSection(i) {
   const hasImg = !!s.bgImg;
   const prompt = s.imgPrompt || '';
   const noImage = (prompt.toLowerCase() === 'none' || prompt === '');
-  const t = s.bgTransform || {zoom:100, x:0, y:0};
-
-  const exportOpts = `<div class="esec" style="margin-top:4px">Export Options</div>
-    <div class="fld" style="padding:0 0 4px">
-      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none;">
-        <div onclick="toggleTransparent(${i})" id="togTrans${i}" style="width:36px;height:20px;border-radius:10px;background:${s._transparent?'var(--or)':'rgba(255,255,255,.15)'};position:relative;flex-shrink:0;cursor:pointer;transition:background .2s">
-          <div style="position:absolute;top:2px;left:${s._transparent?'18px':'2px'};width:16px;height:16px;border-radius:8px;background:#fff;transition:left .2s"></div>
-        </div>
-        <span style="font-size:11px;font-weight:600;color:${s._transparent?'var(--or)':'var(--g5)'}">Transparent export</span>
-      </label>
-    </div>
-    <div class="divl"></div>`;
-
+  const safePrompt = prompt.replace(/`/g, "'");
   if (noImage && !hasImg) {
     return `<div class="esec">Background Image</div>
-      <div class="img-upload-sec" style="opacity:.5" onclick="document.getElementById('imgInput${i}').click()">
+      <div class="img-upload-sec" style="opacity:.5">
         <div class="img-prompt"><strong>Text-only slide</strong>No image — dark background</div>
-        <div class="img-upload-btn" style="opacity:.7">📁 Override with image</div>
+        <div class="img-upload-btn" onclick="document.getElementById('imgInput${i}').click()" style="opacity:.7">📁 Override with image</div>
       </div>
-      <input type="file" id="imgInput${i}" accept="image/*" style="display:none" onchange="loadImg(${i},this)">
-      <div class="divl"></div>${exportOpts}`;
+      <input type="file" id="imgInput${i}" accept="image/*,.avif" style="display:none" onchange="loadImg(${i},this)">
+      <div class="divl"></div>
+      <div class="esec">Export Options</div>
+      <div class="fld" style="padding:0 0 4px">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none;">
+          <div class="tog-wrap" onclick="toggleTransparent(${i})" id="togTrans${i}" style="width:36px;height:20px;border-radius:10px;background:${s._transparent?'var(--or)':'rgba(255,255,255,.15)'};position:relative;flex-shrink:0;cursor:pointer;transition:background .2s">
+            <div style="position:absolute;top:2px;left:${s._transparent?'18px':'2px'};width:16px;height:16px;border-radius:8px;background:#fff;transition:left .2s"></div>
+          </div>
+          <span style="font-size:11px;font-weight:600;color:${s._transparent?'var(--or)':'var(--g5)'}">Transparent background export</span>
+        </label>
+        <div style="font-size:10px;color:var(--g4);margin-top:4px;line-height:1.4">When on, this slide exports as PNG with no background — overlay onto your video in CapCut or any editor.</div>
+      </div>
+      <div class="divl"></div>`;
   }
-
-  const imgSliders = hasImg ? `
-    <div style="margin-top:8px;padding:8px;background:rgba(255,107,0,.06);border:1.5px solid rgba(255,107,0,.3);border-radius:6px;display:flex;flex-direction:column;gap:7px">
-      <div style="font-size:9px;font-weight:800;letter-spacing:1.5px;color:var(--or);text-transform:uppercase">Image Position</div>
-      <div style="display:flex;align-items:center;gap:6px">
-        <span style="font-size:9px;color:var(--g5);font-weight:700;width:36px">ZOOM</span>
-        <input type="range" id="imgEditZoom" min="50" max="300" value="${t.zoom}" oninput="imgSliderChange('zoom',this.value)" style="flex:1;accent-color:var(--or)">
-        <span id="imgEditZoomVal" style="font-size:10px;color:var(--or);font-weight:700;width:32px;text-align:right">${t.zoom}%</span>
-      </div>
-      <div style="display:flex;align-items:center;gap:6px">
-        <span style="font-size:9px;color:var(--g5);font-weight:700;width:36px">←X→</span>
-        <input type="range" id="imgEditX" min="-100" max="100" value="${t.x}" oninput="imgSliderChange('x',this.value)" style="flex:1;accent-color:var(--or)">
-        <span id="imgEditXVal" style="font-size:10px;color:var(--or);font-weight:700;width:32px;text-align:right">${t.x>0?'+':''}${t.x}%</span>
-      </div>
-      <div style="display:flex;align-items:center;gap:6px">
-        <span style="font-size:9px;color:var(--g5);font-weight:700;width:36px">↑Y↓</span>
-        <input type="range" id="imgEditY" min="-100" max="100" value="${t.y}" oninput="imgSliderChange('y',this.value)" style="flex:1;accent-color:var(--or)">
-        <span id="imgEditYVal" style="font-size:10px;color:var(--or);font-weight:700;width:32px;text-align:right">${t.y>0?'+':''}${t.y}%</span>
-      </div>
-      <div style="font-size:9px;color:rgba(255,255,255,.3);line-height:1.4">Drag on slide · Scroll to zoom</div>
-      <button onclick="imgReset(${i})" style="padding:4px;border-radius:4px;font-size:10px;font-weight:700;cursor:pointer;border:1px solid rgba(255,255,255,.15);background:transparent;color:rgba(255,255,255,.4);font-family:'DM Sans'">↺ Reset</button>
-    </div>` : '';
-
   return `<div class="esec">Background Image</div>
-    <div class="img-upload-sec">
-      <div class="img-prompt"><strong>AI Prompt</strong>${prompt||'No prompt'}</div>
-      ${prompt && prompt.toLowerCase()!=='none' ? `<button class="copy-prompt-btn" id="cpbtn${i}" onclick="copyPrompt(${i})">📋 Copy prompt</button>` : ''}
+    <div class="img-upload-sec" onclick="document.getElementById('imgInput${i}').click()">
+      <div class="img-prompt"><strong>AI Prompt — copy to Nanabana</strong>${prompt||'No prompt generated'}</div>
+      ${prompt && prompt.toLowerCase()!=='none' ? `<button class="copy-prompt-btn" id="cpbtn${i}" onclick="event.stopPropagation();copyPrompt(${i})">📋 Copy prompt</button>` : ''}
       ${hasImg
-        ? `<img class="img-preview" src="${s.bgImg||''}" onclick="document.getElementById('imgInput${i}').click()">
-           ${imgSliders}
+        ? `<img class="img-preview" src="${s.bgImg||''}" onclick="event.stopPropagation();imgEditOpen(${i})">
            <div style="display:flex;gap:5px;margin-top:6px">
-             <div class="img-upload-btn" style="flex:1;font-size:10px;padding:4px" onclick="document.getElementById('imgInput${i}').click()">📁 Replace</div>
-             <div class="img-upload-btn" style="flex:1;font-size:10px;padding:4px;color:#ef4444" onclick="clearImg(${i})">✕ Remove</div>
-           </div>`
-        : `<div class="img-upload-btn" onclick="document.getElementById('imgInput${i}').click()">📁 Upload image</div>`
+             <div class="img-upload-btn" style="flex:1;font-size:10px;padding:4px;${_imgEditIdx===i?'border-color:var(--or);color:var(--or)':''}" onclick="event.stopPropagation();imgEditOpen(${i})">${_imgEditIdx===i?'● Editing':'🔍 Edit Image'}</div>
+             <div class="img-upload-btn" style="flex:1;font-size:10px;padding:4px;color:#ef4444" onclick="event.stopPropagation();clearImg(${i})">✕ Remove</div>
+           </div>
+           ${_imgEditIdx===i ? `<div style="margin-top:8px;display:flex;flex-direction:column;gap:6px;padding:8px;background:rgba(255,107,0,.06);border:1.5px solid rgba(255,107,0,.25);border-radius:6px">
+             <div style="font-size:9px;font-weight:800;letter-spacing:1.5px;color:var(--or);text-transform:uppercase">Image Position</div>
+             <div style="display:flex;align-items:center;gap:6px">
+               <span style="font-size:9px;color:var(--g5);font-weight:700;min-width:28px">ZOOM</span>
+               <input type="range" id="imgEditZoom" min="50" max="300" value="${(s.bgTransform&&s.bgTransform.zoom)||100}" oninput="imgEditLiveUpdate()" style="flex:1;accent-color:var(--or)">
+               <span id="imgEditZoomVal" style="font-size:10px;color:var(--or);font-weight:700;min-width:30px;text-align:right">${(s.bgTransform&&s.bgTransform.zoom)||100}%</span>
+             </div>
+             <div style="display:flex;align-items:center;gap:6px">
+               <span style="font-size:9px;color:var(--g5);font-weight:700;min-width:28px">X</span>
+               <input type="range" id="imgEditX" min="-100" max="100" value="${(s.bgTransform&&s.bgTransform.x)||0}" oninput="imgEditPanUpdate()" style="flex:1;accent-color:var(--or)">
+               <span id="imgEditXVal" style="font-size:10px;color:var(--or);font-weight:700;min-width:30px;text-align:right">${(s.bgTransform&&s.bgTransform.x)||0}%</span>
+             </div>
+             <div style="display:flex;align-items:center;gap:6px">
+               <span style="font-size:9px;color:var(--g5);font-weight:700;min-width:28px">Y</span>
+               <input type="range" id="imgEditY" min="-100" max="100" value="${(s.bgTransform&&s.bgTransform.y)||0}" oninput="imgEditPanUpdate()" style="flex:1;accent-color:var(--or)">
+               <span id="imgEditYVal" style="font-size:10px;color:var(--or);font-weight:700;min-width:30px;text-align:right">${(s.bgTransform&&s.bgTransform.y)||0}%</span>
+             </div>
+             <div style="display:flex;gap:5px;margin-top:2px">
+               <button onclick="imgEditReset()" style="flex:1;padding:4px 6px;border-radius:4px;font-size:10px;font-weight:700;cursor:pointer;border:1px solid rgba(255,255,255,.15);background:transparent;color:rgba(255,255,255,.4);font-family:'DM Sans'">↺ Reset</button>
+               <button onclick="imgEditClose()" style="flex:2;padding:4px 6px;border-radius:4px;font-size:10px;font-weight:700;cursor:pointer;border:none;background:var(--or);color:#000;font-family:'DM Sans'">✓ Done editing</button>
+             </div>
+           </div>` : ''}
+           `
+        : `<div class="img-upload-btn">📁 Upload generated image</div>`
       }
     </div>
-    <input type="file" id="imgInput${i}" accept="image/*" style="display:none" onchange="loadImg(${i},this)">
-    <div class="divl"></div>${exportOpts}`;
+    <input type="file" id="imgInput${i}" accept="image/*,.avif" style="display:none" onchange="loadImg(${i},this)">
+    <div class="divl"></div>
+    <div class="esec">Export Options</div>
+    <div class="fld" style="padding:0 0 4px">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none;">
+        <div class="tog-wrap" onclick="toggleTransparent(${i})" id="togTrans${i}" style="width:36px;height:20px;border-radius:10px;background:${s._transparent?'var(--or)':'rgba(255,255,255,.15)'};position:relative;flex-shrink:0;cursor:pointer;transition:background .2s">
+          <div style="position:absolute;top:2px;left:${s._transparent?'18px':'2px'};width:16px;height:16px;border-radius:8px;background:#fff;transition:left .2s"></div>
+        </div>
+        <span style="font-size:11px;font-weight:600;color:${s._transparent?'var(--or)':'var(--g5)'}">Transparent background export</span>
+      </label>
+      <div style="font-size:10px;color:var(--g4);margin-top:4px;line-height:1.4">When on, this slide exports as PNG with no background — overlay onto your video in CapCut or any editor.</div>
+    </div>
+    <div class="divl"></div>`;
 }
-
 
 function copyPrompt(i) {
   const prompt = SLIDES[i].imgPrompt || '';
@@ -837,11 +845,40 @@ function loadImg(idx, input) {
   if (!file) return;
   const reader = new FileReader();
   reader.onload = e => {
-    SLIDES[idx].bgImg = e.target.result;
-    SLIDES[idx].bgTransform = {zoom:100, x:0, y:0};
-    refresh();
-    buildEditor(SLIDES[idx]);
-    buildThumbs();
+    const rawDataUrl = e.target.result;
+    // html2canvas can't render AVIF/WebP reliably — convert to JPEG via canvas
+    const needsConvert = file.type === 'image/avif' || file.type === 'image/webp' ||
+                         rawDataUrl.startsWith('data:image/avif') ||
+                         rawDataUrl.startsWith('data:image/webp');
+    if (needsConvert) {
+      const img = new Image();
+      img.onload = () => {
+        const cvs = document.createElement('canvas');
+        cvs.width = img.naturalWidth || img.width;
+        cvs.height = img.naturalHeight || img.height;
+        const ctx = cvs.getContext('2d');
+        ctx.drawImage(img, 0, 0);
+        const jpegUrl = cvs.toDataURL('image/jpeg', 0.92);
+        SLIDES[idx].bgImg = jpegUrl;
+        SLIDES[idx].bgTransform = {zoom:100, x:0, y:0};
+        refresh();
+        buildEditor(SLIDES[idx]);
+        buildThumbs();
+      };
+      img.onerror = () => {
+        // Fallback — use raw even if it might not export
+        SLIDES[idx].bgImg = rawDataUrl;
+        SLIDES[idx].bgTransform = {zoom:100, x:0, y:0};
+        refresh(); buildEditor(SLIDES[idx]); buildThumbs();
+      };
+      img.src = rawDataUrl;
+    } else {
+      SLIDES[idx].bgImg = rawDataUrl;
+      SLIDES[idx].bgTransform = {zoom:100, x:0, y:0};
+      refresh();
+      buildEditor(SLIDES[idx]);
+      buildThumbs();
+    }
   };
   reader.readAsDataURL(file);
 }
@@ -1372,88 +1409,109 @@ async function doReviseSlides() {
 
 
 // ═══════════════════════════════════════════════════
-// IMAGE PAN / ZOOM — always active when slide has bgImg
+// IMAGE PAN / ZOOM — INLINE ON SLIDE CANVAS
 // ═══════════════════════════════════════════════════
-let _imgDragActive = false;
+let _imgEditIdx = -1;
+let _imgEditActive = false;
+let _imgDrag = null;
 
-function imgSliderChange(axis, val) {
-  const s = SLIDES[cur];
+function imgEditOpen(idx) {
+  _imgEditIdx = idx;
+  _imgEditActive = true;
+  const s = SLIDES[idx];
   if (!s || !s.bgImg) return;
-  if (!s.bgTransform) s.bgTransform = {zoom:100, x:0, y:0};
-  s.bgTransform[axis] = parseInt(val);
-  // Update display values
-  if (axis==='zoom') { const el=document.getElementById('imgEditZoomVal'); if(el) el.textContent=val+'%'; }
-  if (axis==='x')    { const el=document.getElementById('imgEditXVal');    if(el) el.textContent=(val>0?'+':'')+val+'%'; }
-  if (axis==='y')    { const el=document.getElementById('imgEditYVal');    if(el) el.textContent=(val>0?'+':'')+val+'%'; }
+
+  const t = s.bgTransform || { zoom: 100, x: 0, y: 0 };
+  document.getElementById('imgEditZoom').value = t.zoom;
+  document.getElementById('imgEditZoomVal').textContent = t.zoom + '%';
+
+  // Show toolbar, activate slide mode
+  // Show controls in editor panel by rebuilding it
+  buildEditor(SLIDES[idx]);
+  const sf = document.getElementById('sf');
+  sf.classList.add('img-edit-mode');
+
+  // Attach drag handler to slide frame
+  sf.addEventListener('mousedown', imgEditDragStart);
+  sf.addEventListener('touchstart', imgEditDragStart, { passive: false });
+  sf.addEventListener('wheel', imgEditWheel, { passive: false });
+
+  // Hide the edit hint
+  document.getElementById('editHint').style.display = 'none';
+}
+
+function imgEditLiveUpdate() {
+  if (_imgEditIdx < 0) return;
+  const zoom = parseInt(document.getElementById('imgEditZoom').value);
+  if (document.getElementById('imgEditZoomVal')) document.getElementById('imgEditZoomVal').textContent = zoom + '%';
+  if (!SLIDES[_imgEditIdx].bgTransform) SLIDES[_imgEditIdx].bgTransform = { zoom: 100, x: 0, y: 0 };
+  SLIDES[_imgEditIdx].bgTransform.zoom = zoom;
   refresh();
 }
 
-function imgReset(i) {
-  if (!SLIDES[i]) return;
-  SLIDES[i].bgTransform = {zoom:100, x:0, y:0};
-  buildEditor(SLIDES[i]);
+function imgEditPanUpdate() {
+  if (_imgEditIdx < 0) return;
+  if (!SLIDES[_imgEditIdx].bgTransform) SLIDES[_imgEditIdx].bgTransform = { zoom: 100, x: 0, y: 0 };
+  const xEl = document.getElementById('imgEditX');
+  const yEl = document.getElementById('imgEditY');
+  if (xEl) {
+    SLIDES[_imgEditIdx].bgTransform.x = parseInt(xEl.value);
+    if (document.getElementById('imgEditXVal')) document.getElementById('imgEditXVal').textContent = xEl.value + '%';
+  }
+  if (yEl) {
+    SLIDES[_imgEditIdx].bgTransform.y = parseInt(yEl.value);
+    if (document.getElementById('imgEditYVal')) document.getElementById('imgEditYVal').textContent = yEl.value + '%';
+  }
   refresh();
-}
-
-// Sync slider UI from current bgTransform (called after drag)
-function imgSyncSliders(s) {
-  if (!s || !s.bgTransform) return;
-  const t = s.bgTransform;
-  const zoom = document.getElementById('imgEditZoom');
-  const x    = document.getElementById('imgEditX');
-  const y    = document.getElementById('imgEditY');
-  const zv   = document.getElementById('imgEditZoomVal');
-  const xv   = document.getElementById('imgEditXVal');
-  const yv   = document.getElementById('imgEditYVal');
-  if (zoom) zoom.value = t.zoom;
-  if (x)    x.value    = t.x;
-  if (y)    y.value    = t.y;
-  if (zv)   zv.textContent = t.zoom+'%';
-  if (xv)   xv.textContent = (t.x>0?'+':'')+t.x+'%';
-  if (yv)   yv.textContent = (t.y>0?'+':'')+t.y+'%';
 }
 
 function imgEditWheel(e) {
-  const s = SLIDES[cur];
-  if (!s || !s.bgImg) return;
+  if (!_imgEditActive || _imgEditIdx < 0) return;
   e.preventDefault();
-  if (!s.bgTransform) s.bgTransform = {zoom:100, x:0, y:0};
-  s.bgTransform.zoom = Math.max(50, Math.min(300, s.bgTransform.zoom + (e.deltaY > 0 ? -5 : 5)));
-  imgSyncSliders(s);
+  const s = SLIDES[_imgEditIdx];
+  if (!s.bgTransform) s.bgTransform = { zoom: 100, x: 0, y: 0 };
+  const delta = e.deltaY > 0 ? -5 : 5;
+  s.bgTransform.zoom = Math.max(50, Math.min(300, s.bgTransform.zoom + delta));
+  document.getElementById('imgEditZoom').value = s.bgTransform.zoom;
+  document.getElementById('imgEditZoomVal').textContent = s.bgTransform.zoom + '%';
   refresh();
 }
 
 function imgEditDragStart(e) {
-  const s = SLIDES[cur];
-  if (!s || !s.bgImg) return;
-  // Don't intercept contenteditable clicks or button clicks
-  if (e.target.getAttribute && e.target.getAttribute('contenteditable')) return;
-  if (e.target.tagName === 'BUTTON') return;
-  // Only drag on the background image area — not on text elements
-  // Check if click target is a content element (has data-ce or data-drag with text)
-  if (e.target.getAttribute && e.target.getAttribute('data-ce')) return;
-
+  if (!_imgEditActive || _imgEditIdx < 0) return;
+  // Don't intercept clicks on contenteditable or buttons
+  if (e.target.getAttribute && (e.target.getAttribute('contenteditable') || e.target.tagName === 'BUTTON')) return;
   e.preventDefault();
   const sf = document.getElementById('sf');
-  sf.style.cursor = 'grabbing';
+  sf.classList.add('grabbing');
 
-  if (!s.bgTransform) s.bgTransform = {zoom:100, x:0, y:0};
   const startX = e.clientX ?? e.touches?.[0]?.clientX;
   const startY = e.clientY ?? e.touches?.[0]?.clientY;
+  const s = SLIDES[_imgEditIdx];
+  if (!s.bgTransform) s.bgTransform = { zoom: 100, x: 0, y: 0 };
   const startPX = s.bgTransform.x;
   const startPY = s.bgTransform.y;
-  const scale = Math.max(0.3, s.bgTransform.zoom / 200);
 
   function onMove(ev) {
     const cx = ev.clientX ?? ev.touches?.[0]?.clientX ?? startX;
     const cy = ev.clientY ?? ev.touches?.[0]?.clientY ?? startY;
-    s.bgTransform.x = Math.max(-100, Math.min(100, startPX + Math.round((cx - startX) / scale)));
-    s.bgTransform.y = Math.max(-100, Math.min(100, startPY + Math.round((cy - startY) / scale)));
-    imgSyncSliders(s);
+    // Scale drag by zoom level so faster movement at higher zoom
+    const scale = (s.bgTransform.zoom / 100) * 0.4;
+    const dx = Math.round((cx - startX) / scale);
+    const dy = Math.round((cy - startY) / scale);
+    s.bgTransform.x = Math.max(-100, Math.min(100, startPX + dx));
+    s.bgTransform.y = Math.max(-100, Math.min(100, startPY + dy));
+    // Sync sliders in editor panel
+    const xEl = document.getElementById('imgEditX');
+    const yEl = document.getElementById('imgEditY');
+    if (xEl) { xEl.value = s.bgTransform.x; }
+    if (yEl) { yEl.value = s.bgTransform.y; }
+    if (document.getElementById('imgEditXVal')) document.getElementById('imgEditXVal').textContent = s.bgTransform.x + '%';
+    if (document.getElementById('imgEditYVal')) document.getElementById('imgEditYVal').textContent = s.bgTransform.y + '%';
     refresh();
   }
   function onUp() {
-    sf.style.cursor = '';
+    sf.classList.remove('grabbing');
     document.removeEventListener('mousemove', onMove);
     document.removeEventListener('mouseup', onUp);
     document.removeEventListener('touchmove', onMove);
@@ -1461,17 +1519,29 @@ function imgEditDragStart(e) {
   }
   document.addEventListener('mousemove', onMove);
   document.addEventListener('mouseup', onUp);
-  document.addEventListener('touchmove', onMove, {passive:false});
+  document.addEventListener('touchmove', onMove, { passive: false });
   document.addEventListener('touchend', onUp);
 }
 
-// Legacy stubs (called by old code paths)
-function imgEditOpen(i) { if(SLIDES[i] && SLIDES[i].bgImg) buildEditor(SLIDES[i]); }
-function imgEditClose() {}
-function imgEditLiveUpdate() {}
-function imgEditPanUpdate() {}
-function imgEditReset() { imgReset(cur); }
+function imgEditReset() {
+  if (_imgEditIdx < 0) return;
+  SLIDES[_imgEditIdx].bgTransform = { zoom: 100, x: 0, y: 0 };
+  ['imgEditZoom','imgEditX','imgEditY'].forEach(id => { const el=document.getElementById(id); if(el) el.value = id==='imgEditZoom'?100:0; });
+  ['imgEditZoomVal','imgEditXVal','imgEditYVal'].forEach((id,i) => { const el=document.getElementById(id); if(el) el.textContent = i===0?'100%':'0%'; });
+  refresh();
+}
 
+function imgEditClose() {
+  const sf = document.getElementById('sf');
+  sf.removeEventListener('mousedown', imgEditDragStart);
+  sf.removeEventListener('touchstart', imgEditDragStart);
+  sf.removeEventListener('wheel', imgEditWheel);
+  sf.classList.remove('img-edit-mode', 'grabbing');
+  document.getElementById('editHint').style.display = '';
+  if (_imgEditIdx >= 0) buildEditor(SLIDES[_imgEditIdx]);
+  _imgEditActive = false;
+  _imgEditIdx = -1;
+}
 
 // ═══════════════════════════════════════════════════
 // TRANSPARENT EXPORT TOGGLE
@@ -1596,10 +1666,6 @@ document.getElementById('ov').addEventListener('click',e=>{
   }
 });
 new ResizeObserver(()=>{calcSz();if(SLIDES.length)refresh();}).observe(document.getElementById('ctr'));
-// Image drag + scroll — always active, only fires when slide has bgImg
-document.getElementById('sf').addEventListener('mousedown', imgEditDragStart);
-document.getElementById('sf').addEventListener('touchstart', imgEditDragStart, {passive:false});
-document.getElementById('sf').addEventListener('wheel', imgEditWheel, {passive:false});
 applyWidths();
 calcSz();
 </script>
