@@ -322,6 +322,30 @@ html,body{height:100%;overflow:hidden;font-family:'DM Sans',sans-serif;backgroun
 .ieb-btn.reset:hover{background:rgba(255,255,255,.15);}
 #sf.img-edit-mode{cursor:grab;outline:2px solid var(--or);outline-offset:2px;}
 #sf.img-edit-mode.grabbing{cursor:grabbing;}
+
+/* Clarification questions */
+.clarify-card{background:rgba(255,107,0,.06);border:1.5px solid rgba(255,107,0,.25);border-radius:10px;padding:12px 14px;display:flex;flex-direction:column;gap:10px;width:100%}
+.clarify-q{font-size:12px;font-weight:700;color:#fff;line-height:1.4}
+.clarify-hint{font-size:10px;color:var(--g5);margin-top:2px}
+.clarify-input{background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.15);border-radius:6px;color:#fff;font-size:12px;padding:8px 10px;resize:none;font-family:'DM Sans';outline:none;width:100%;box-sizing:border-box}
+.clarify-input:focus{border-color:var(--or)}
+.clarify-actions{display:flex;gap:8px;margin-top:2px}
+.clarify-skip{flex:1;padding:7px;border-radius:5px;font-size:11px;font-weight:700;cursor:pointer;border:1px solid rgba(255,255,255,.15);background:transparent;color:rgba(255,255,255,.4);font-family:'DM Sans'}
+.clarify-skip:hover{background:rgba(255,255,255,.08);color:rgba(255,255,255,.7)}
+.clarify-go{flex:2;padding:7px;border-radius:5px;font-size:11px;font-weight:700;cursor:pointer;border:none;background:var(--or);color:#000;font-family:'DM Sans'}
+.clarify-go:hover{background:#e55f00}
+/* Image gallery */
+.img-gallery{display:flex;flex-direction:column;gap:8px;width:100%}
+.img-gallery-title{font-size:9px;font-weight:800;letter-spacing:2px;color:var(--g5);text-transform:uppercase}
+.img-gallery-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.img-thumb{position:relative;aspect-ratio:1;border-radius:6px;overflow:hidden;cursor:pointer;border:1.5px solid transparent;transition:border-color .15s}
+.img-thumb:hover{border-color:var(--or)}
+.img-thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.img-thumb .use-btn{position:absolute;inset:0;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:#fff;letter-spacing:1px;text-transform:uppercase}
+.img-thumb:hover .use-btn{display:flex}
+.img-thumb.used{border-color:var(--or)}
+.img-thumb.used .use-btn{display:flex;background:rgba(255,107,0,.5);font-size:9px}
+.img-gallery-loading{font-size:11px;color:var(--g5);padding:8px 0}
 </style>
 </head>
 <body>
@@ -534,20 +558,103 @@ async function doPlan() {
   const topic = inp.value.trim();
   if (!topic || busy) return;
 
-  setBusy(true, 'Planning…');
-  document.getElementById('sendBtn').textContent = 'Plan Carousel →';
-  document.getElementById('topicInput').placeholder = "e.g. '5 products to 3D print and sell this summer'…";
+  setBusy(true, 'Checking topic…');
   addMsg('user', topic);
   inp.value = '';
-  addTyping('Researching topic and building plan…');
   setStep(2);
+
+  // ── Clarification check via Claude ──────────────────────────────────────────
+  try {
+    const clarRes = await fetch('https://api.anthropic.com/v1/messages', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 300,
+        system: `You are a content assistant for @meshminds3d, an Instagram account about making money with 3D printing.
+Analyse the user's carousel topic. Decide if it needs clarification before researching.
+
+A topic needs clarification if ANY of these are true:
+1. Too vague (e.g. "3d printing" with no angle, "cool products", "something for beginners")
+2. Unclear intent (could be a how-to, product sell, or review — can't tell which)
+3. Missing key data that would make the carousel much better (e.g. product topic with no price range hint, technique topic with no printer model)
+
+A topic is FINE if it's specific enough: "fidget roller", "how to fix stringing on Bambu A1", "is PETG worth it for outdoor prints", "wall key holder Etsy", etc.
+
+Return ONLY valid JSON — no text, no markdown:
+{ "needsClarification": true|false, "questions": ["question 1", "question 2"] }
+Max 2 questions. Only include if needsClarification is true.`,
+        messages: [{ role: 'user', content: `Carousel topic: "${topic}"` }]
+      })
+    });
+    const clarData = await clarRes.json();
+    const clarText = clarData.content?.[0]?.text || '{"needsClarification":false}';
+    let clarJson;
+    try { clarJson = JSON.parse(clarText.replace(/^```json\n?/,'').replace(/```$/,'').trim()); }
+    catch(e) { clarJson = {needsClarification:false}; }
+
+    if (clarJson.needsClarification && clarJson.questions?.length) {
+      setBusy(false);
+      showClarifyCard(topic, clarJson.questions);
+      return;
+    }
+  } catch(e) {
+    // If clarification check fails, just proceed normally
+  }
+
+  await runPlan(topic, {});
+}
+
+function showClarifyCard(topic, questions) {
+  const msgs = document.getElementById('msgs');
+  const card = document.createElement('div');
+  card.className = 'msg ai'; card.id = 'clarifyCard';
+
+  const qHtml = questions.map((q, i) => `
+    <div>
+      <div class="clarify-q">${q}</div>
+      <textarea class="clarify-input" id="clarifyAns${i}" rows="2" placeholder="Your answer (or leave blank to skip)…"></textarea>
+    </div>`).join('');
+
+  card.innerHTML = `<div class="clarify-card">
+    <div style="font-size:9px;font-weight:800;letter-spacing:2px;color:var(--or);text-transform:uppercase;margin-bottom:2px">Quick question${questions.length>1?'s':''} before I research</div>
+    ${qHtml}
+    <div class="clarify-actions">
+      <button class="clarify-skip" onclick="skipClarify('${topic.replace(/'/g,"\\'")}')" >Skip — just go</button>
+      <button class="clarify-go" onclick="submitClarify('${topic.replace(/'/g,"\\'")}')" >Research this →</button>
+    </div>
+  </div>`;
+  msgs.appendChild(card);
+  msgs.scrollTop = msgs.scrollHeight;
+  document.querySelector('.clarify-input')?.focus();
+}
+
+async function skipClarify(topic) {
+  document.getElementById('clarifyCard')?.remove();
+  await runPlan(topic, {});
+}
+
+async function submitClarify(topic) {
+  const card = document.getElementById('clarifyCard');
+  const answers = [];
+  card?.querySelectorAll('.clarify-input').forEach((el, i) => {
+    if (el.value.trim()) answers.push(el.value.trim());
+  });
+  const enriched = answers.length ? topic + ' — ' + answers.join('. ') : topic;
+  if (answers.length) addMsg('user', answers.join(' / '));
+  card?.remove();
+  await runPlan(enriched, {});
+}
+
+async function runPlan(topic, extra) {
+  setBusy(true, 'Planning…');
+  addTyping('Researching topic and building plan…');
 
   try {
     const ctrl1 = new AbortController();
-    const t1 = setTimeout(() => ctrl1.abort(), 60000);
+    const t1 = setTimeout(() => ctrl1.abort(), 90000);
     const res = await fetch(N8N, {
       method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ action:'plan', message: topic }),
+      body: JSON.stringify({ action:'plan', message: topic, ...extra }),
       keepalive: true, signal: ctrl1.signal
     });
     clearTimeout(t1);
@@ -631,6 +738,10 @@ function showPlanCard(plan, topic) {
 
   msgs.appendChild(card);
   msgs.scrollTop = msgs.scrollHeight;
+
+  // Show image gallery after plan
+  showImageGallery(topic);
+
   setTimeout(() => doGenerate(), 400);
 }
 
@@ -753,13 +864,8 @@ async function doGenerate() {
 // NORMALIZE slide from n8n into our format
 // ═══════════════════════════════════════════════════
 function imgSection(i) {
-  const s = SLIDES[i];
-  const hasImg = !!s.bgImg;
-  const prompt = s.imgPrompt || '';
-  const noImage = (prompt.toLowerCase() === 'none' || prompt === '');
-  const t = s.bgTransform || {zoom:100, x:0, y:0};
-
-  const exportOpts = `<div class="esec" style="margin-top:4px">Export Options</div>
+  const s=SLIDES[i], hasImg=!!s.bgImg, prompt=s.imgPrompt||'', noImage=(prompt.toLowerCase()==='none'||prompt===''), t=s.bgTransform||{zoom:100,x:0,y:0};
+  const exp=`<div class="esec" style="margin-top:4px">Export Options</div>
     <div class="fld" style="padding:0 0 4px">
       <label style="display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none;">
         <div onclick="toggleTransparent(${i})" id="togTrans${i}" style="width:36px;height:20px;border-radius:10px;background:${s._transparent?'var(--or)':'rgba(255,255,255,.15)'};position:relative;flex-shrink:0;cursor:pointer;transition:background .2s">
@@ -767,58 +873,36 @@ function imgSection(i) {
         </div>
         <span style="font-size:11px;font-weight:600;color:${s._transparent?'var(--or)':'var(--g5)'}">Transparent export</span>
       </label>
-      <div style="font-size:10px;color:var(--g4);margin-top:3px;line-height:1.4">Exports with no background — overlay on video in CapCut.</div>
+      <div style="font-size:10px;color:var(--g4);margin-top:3px;line-height:1.4">Exports without background — overlay on video in CapCut.</div>
     </div>
     <div class="divl"></div>`;
-
-  if (noImage && !hasImg) {
-    return `<div class="esec">Background Image</div>
-      <div class="img-upload-sec" style="opacity:.5" onclick="document.getElementById('imgInput${i}').click()">
-        <div class="img-prompt"><strong>Text-only slide</strong>No image — dark background</div>
-        <div class="img-upload-btn" style="opacity:.7">📁 Override with image</div>
-      </div>
-      <input type="file" id="imgInput${i}" accept="image/*,.avif" style="display:none" onchange="loadImg(${i},this)">
-      <div class="divl"></div>${exportOpts}`;
-  }
-
-  const imgControls = hasImg ? `
-    <div style="margin-top:8px;padding:8px;background:rgba(255,107,0,.06);border:1.5px solid rgba(255,107,0,.3);border-radius:6px;display:flex;flex-direction:column;gap:7px">
-      <div style="font-size:9px;font-weight:800;letter-spacing:1.5px;color:var(--or);text-transform:uppercase">🔍 Image Position</div>
-      <div style="display:flex;align-items:center;gap:6px">
-        <span style="font-size:9px;color:var(--g5);font-weight:700;width:36px">ZOOM</span>
-        <input type="range" id="imgEditZoom" min="50" max="300" value="${t.zoom}" oninput="imgSliderChange('zoom',this.value)" style="flex:1;accent-color:var(--or)">
-        <span id="imgEditZoomVal" style="font-size:10px;color:var(--or);font-weight:700;width:34px;text-align:right">${t.zoom}%</span>
-      </div>
-      <div style="display:flex;align-items:center;gap:6px">
-        <span style="font-size:9px;color:var(--g5);font-weight:700;width:36px">←X→</span>
-        <input type="range" id="imgEditX" min="-100" max="100" value="${t.x}" oninput="imgSliderChange('x',this.value)" style="flex:1;accent-color:var(--or)">
-        <span id="imgEditXVal" style="font-size:10px;color:var(--or);font-weight:700;width:34px;text-align:right">${t.x>0?'+':''}${t.x}%</span>
-      </div>
-      <div style="display:flex;align-items:center;gap:6px">
-        <span style="font-size:9px;color:var(--g5);font-weight:700;width:36px">↑Y↓</span>
-        <input type="range" id="imgEditY" min="-100" max="100" value="${t.y}" oninput="imgSliderChange('y',this.value)" style="flex:1;accent-color:var(--or)">
-        <span id="imgEditYVal" style="font-size:10px;color:var(--or);font-weight:700;width:34px;text-align:right">${t.y>0?'+':''}${t.y}%</span>
-      </div>
-      <div style="font-size:9px;color:rgba(255,255,255,.3)">Drag slide to pan · Scroll to zoom</div>
-      <button onclick="imgReset(${i})" style="padding:4px;border-radius:4px;font-size:10px;font-weight:700;cursor:pointer;border:1px solid rgba(255,255,255,.15);background:transparent;color:rgba(255,255,255,.4);font-family:'DM Sans'">↺ Reset position</button>
-    </div>` : '';
-
+  if(noImage&&!hasImg){return `<div class="esec">Background Image</div>
+    <div class="img-upload-sec" style="opacity:.5" onclick="document.getElementById('imgInput${i}').click()">
+      <div class="img-prompt"><strong>Text-only slide</strong>No image</div>
+      <div class="img-upload-btn" style="opacity:.7">Upload image</div>
+    </div>
+    <input type="file" id="imgInput${i}" accept="image/*,.avif" style="display:none" onchange="loadImg(${i},this)">
+    <div class="divl"></div>${exp}`;}
+  const sliders=hasImg?`<div style="margin-top:8px;padding:8px;background:rgba(255,107,0,.06);border:1.5px solid rgba(255,107,0,.3);border-radius:6px;display:flex;flex-direction:column;gap:7px">
+    <div style="font-size:9px;font-weight:800;letter-spacing:1.5px;color:var(--or);text-transform:uppercase">Image Position</div>
+    <div style="display:flex;align-items:center;gap:6px"><span style="font-size:9px;color:var(--g5);font-weight:700;width:36px">ZOOM</span><input type="range" id="imgEditZoom" min="50" max="300" value="${t.zoom}" oninput="imgSliderChange('zoom',this.value)" style="flex:1;accent-color:var(--or)"><span id="imgEditZoomVal" style="font-size:10px;color:var(--or);font-weight:700;width:34px;text-align:right">${t.zoom}%</span></div>
+    <div style="display:flex;align-items:center;gap:6px"><span style="font-size:9px;color:var(--g5);font-weight:700;width:36px">←X→</span><input type="range" id="imgEditX" min="-100" max="100" value="${t.x}" oninput="imgSliderChange('x',this.value)" style="flex:1;accent-color:var(--or)"><span id="imgEditXVal" style="font-size:10px;color:var(--or);font-weight:700;width:34px;text-align:right">${t.x>0?'+':''}${t.x}%</span></div>
+    <div style="display:flex;align-items:center;gap:6px"><span style="font-size:9px;color:var(--g5);font-weight:700;width:36px">↑Y↓</span><input type="range" id="imgEditY" min="-100" max="100" value="${t.y}" oninput="imgSliderChange('y',this.value)" style="flex:1;accent-color:var(--or)"><span id="imgEditYVal" style="font-size:10px;color:var(--or);font-weight:700;width:34px;text-align:right">${t.y>0?'+':''}${t.y}%</span></div>
+    <div style="font-size:9px;color:rgba(255,255,255,.3)">Drag slide to pan · Scroll to zoom</div>
+    <button onclick="imgReset(${i})" style="padding:4px;border-radius:4px;font-size:10px;font-weight:700;cursor:pointer;border:1px solid rgba(255,255,255,.15);background:transparent;color:rgba(255,255,255,.4);font-family:'DM Sans'">↺ Reset</button>
+  </div>`:'';
   return `<div class="esec">Background Image</div>
     <div class="img-upload-sec">
       <div class="img-prompt"><strong>AI Prompt</strong>${prompt||'No prompt'}</div>
-      ${prompt && prompt.toLowerCase()!=='none' ? `<button class="copy-prompt-btn" id="cpbtn${i}" onclick="copyPrompt(${i})">📋 Copy prompt</button>` : ''}
-      ${hasImg
-        ? `<img class="img-preview" src="${s.bgImg||''}" onclick="document.getElementById('imgInput${i}').click()">
-           ${imgControls}
-           <div style="display:flex;gap:5px;margin-top:6px">
-             <div class="img-upload-btn" style="flex:1;font-size:10px;padding:4px" onclick="document.getElementById('imgInput${i}').click()">📁 Replace</div>
-             <div class="img-upload-btn" style="flex:1;font-size:10px;padding:4px;color:#ef4444" onclick="clearImg(${i})">✕ Remove</div>
-           </div>`
-        : `<div class="img-upload-btn" onclick="document.getElementById('imgInput${i}').click()">📁 Upload image</div>`
-      }
+      ${prompt&&prompt.toLowerCase()!=='none'?`<button class="copy-prompt-btn" id="cpbtn${i}" onclick="copyPrompt(${i})">Copy prompt</button>`:''}
+      ${hasImg?`<img class="img-preview" src="${s.bgImg||''}" onclick="document.getElementById('imgInput${i}').click()">${sliders}
+        <div style="display:flex;gap:5px;margin-top:6px">
+          <div class="img-upload-btn" style="flex:1;font-size:10px;padding:4px" onclick="document.getElementById('imgInput${i}').click()">Replace</div>
+          <div class="img-upload-btn" style="flex:1;font-size:10px;padding:4px;color:#ef4444" onclick="clearImg(${i})">Remove</div>
+        </div>`:`<div class="img-upload-btn" onclick="document.getElementById('imgInput${i}').click()">Upload image</div>`}
     </div>
     <input type="file" id="imgInput${i}" accept="image/*,.avif" style="display:none" onchange="loadImg(${i},this)">
-    <div class="divl"></div>${exportOpts}`;
+    <div class="divl"></div>${exp}`;
 }
 
 function copyPrompt(i) {
@@ -837,40 +921,15 @@ function loadImg(idx, input) {
   if (!file) return;
   const reader = new FileReader();
   reader.onload = e => {
-    const rawDataUrl = e.target.result;
-    // html2canvas can't render AVIF/WebP reliably — convert to JPEG via canvas
-    const needsConvert = file.type === 'image/avif' || file.type === 'image/webp' ||
-                         rawDataUrl.startsWith('data:image/avif') ||
-                         rawDataUrl.startsWith('data:image/webp');
+    const raw = e.target.result;
+    const needsConvert = file.type==='image/avif'||file.type==='image/webp'||raw.startsWith('data:image/avif')||raw.startsWith('data:image/webp');
+    const apply = (url) => { SLIDES[idx].bgImg=url; SLIDES[idx].bgTransform={zoom:100,x:0,y:0}; refresh(); buildEditor(SLIDES[idx]); buildThumbs(); };
     if (needsConvert) {
       const img = new Image();
-      img.onload = () => {
-        const cvs = document.createElement('canvas');
-        cvs.width = img.naturalWidth || img.width;
-        cvs.height = img.naturalHeight || img.height;
-        const ctx = cvs.getContext('2d');
-        ctx.drawImage(img, 0, 0);
-        const jpegUrl = cvs.toDataURL('image/jpeg', 0.92);
-        SLIDES[idx].bgImg = jpegUrl;
-        SLIDES[idx].bgTransform = {zoom:100, x:0, y:0};
-        refresh();
-        buildEditor(SLIDES[idx]);
-        buildThumbs();
-      };
-      img.onerror = () => {
-        // Fallback — use raw even if it might not export
-        SLIDES[idx].bgImg = rawDataUrl;
-        SLIDES[idx].bgTransform = {zoom:100, x:0, y:0};
-        refresh(); buildEditor(SLIDES[idx]); buildThumbs();
-      };
-      img.src = rawDataUrl;
-    } else {
-      SLIDES[idx].bgImg = rawDataUrl;
-      SLIDES[idx].bgTransform = {zoom:100, x:0, y:0};
-      refresh();
-      buildEditor(SLIDES[idx]);
-      buildThumbs();
-    }
+      img.onload = () => { const c=document.createElement('canvas'); c.width=img.naturalWidth||img.width; c.height=img.naturalHeight||img.height; c.getContext('2d').drawImage(img,0,0); apply(c.toDataURL('image/jpeg',0.92)); };
+      img.onerror = () => apply(raw);
+      img.src = raw;
+    } else { apply(raw); }
   };
   reader.readAsDataURL(file);
 }
@@ -1153,7 +1212,7 @@ function mkSlide(s,w,h){
           <img src="${AVATAR}" style="width:${avatarS}px;height:${avatarS}px;border-radius:50%;object-fit:cover;border:2px solid ${OR};flex-shrink:0;" ${EXP?'crossorigin="anonymous"':''}>
           <div style="flex:1;min-width:0;">
             <div style="font-family:'Bebas Neue';font-size:${Math.round(sz('h2',s.fs||1,w)*.55)}px;color:#fff;letter-spacing:2px;line-height:1">@meshminds3d</div>
-            <div ${_ce('cta2',EXP)} style="font-size:${bsS}px;color:rgba(255,255,255,.5);font-weight:600;margin-top:${Math.round(h*.006)}px;line-height:1.35;">${s.cta2||'One profitable 3D print every week'}</div>
+            <div ${_ce('cta2',EXP)} style="font-size:${bsS}px;color:rgba(255,255,255,.5);font-weight:600;margin-top:${Math.round(h*.006)}px;line-height:1.35;">${s.cta2||'Make money 3D printing. New tips every day.'}</div>
           </div>
           <div style="font-size:${bsS}px;color:${OR};font-weight:800;letter-spacing:1px;flex-shrink:0;">FOLLOW →</div>
         </div>
@@ -1205,6 +1264,332 @@ function mkSlide(s,w,h){
         <div style="display:flex;flex-direction:column;gap:${Math.round(h*.02)}px">${steps}</div>
       </div>`;
   }
+
+
+
+  // ── ETSY LISTING CARD ───────────────────────────────────────────────────────
+  if(s.type==='etsy_listing'){
+    const h1S=sz('h2',s.fs||1,w), bS=sz('body',s.fs||1,w)*.85, statS=sz('stat',s.fs||1,w)*.7;
+    const eyeS=sz('eyebrow',s.fs||1,w)*.65, labelS=sz('eyebrow',s.fs||1,w)*.55;
+    const imgH=Math.round(h*.38);
+    inner=`
+      ${s.bgImg?`<div style="position:absolute;top:0;left:0;right:0;height:${imgH}px;background:url('${s.bgImg}') calc(50% + ${(s.bgTransform&&s.bgTransform.x)||0}%) calc(50% + ${(s.bgTransform&&s.bgTransform.y)||0}%) / ${(s.bgTransform&&s.bgTransform.zoom)||100}% no-repeat;z-index:0"></div>`:'<div style="position:absolute;top:0;left:0;right:0;height:'+imgH+'px;background:rgba(255,107,0,.07);border-bottom:1.5px dashed rgba(255,107,0,.3);display:flex;align-items:center;justify-content:center;font-size:'+Math.round(w*.03)+'px;color:rgba(255,107,0,.4);font-weight:800;letter-spacing:2px;text-transform:uppercase;z-index:0">PRODUCT PHOTO</div>'}
+      <div style="position:absolute;top:0;left:0;right:0;height:${imgH+Math.round(h*.06)}px;background:linear-gradient(to top,#111 0%,transparent 60%);z-index:1"></div>
+      <div style="position:absolute;top:${imgH+Math.round(h*.01)}px;left:${PAD}px;right:${PAD}px;bottom:${PAD}px;z-index:2;display:flex;flex-direction:column;gap:${Math.round(h*.015)}px">
+        <div style="display:flex;align-items:center;justify-content:space-between">
+          ${s.badge?`<div style="background:rgba(255,107,0,.2);border:1px solid rgba(255,107,0,.5);border-radius:${Math.round(w*.03)}px;padding:${Math.round(h*.006)}px ${Math.round(w*.035)}px;font-size:${labelS}px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:${OR}">${s.badge}</div>`:'<div></div>'}
+          <div style="font-size:${labelS}px;font-weight:700;color:rgba(255,255,255,.5)">${s.rating||'4.9 ★'} (${s.reviews||'—'} reviews)</div>
+        </div>
+        <div style="font-size:${h1S}px;font-weight:900;line-height:.95;color:#fff;font-family:'Bebas Neue',sans-serif;letter-spacing:1px">${s.headline||'PRODUCT TITLE'}</div>
+        <div style="font-size:${bS}px;line-height:1.5;color:rgba(255,255,255,.55)">${s.description||'Product description from the listing.'}</div>
+        <div style="display:flex;gap:${Math.round(w*.02)}px">
+          <div style="flex:1;background:rgba(255,255,255,.05);border-radius:${Math.round(w*.02)}px;padding:${Math.round(h*.02)}px ${Math.round(w*.03)}px">
+            <div style="font-size:${labelS}px;text-transform:uppercase;letter-spacing:1px;color:rgba(255,255,255,.4)">Price</div>
+            <div style="font-size:${statS}px;font-weight:900;color:${OR};font-family:'Bebas Neue',sans-serif">${s.price||'€—'}</div>
+          </div>
+          <div style="flex:1;background:rgba(255,255,255,.05);border-radius:${Math.round(w*.02)}px;padding:${Math.round(h*.02)}px ${Math.round(w*.03)}px">
+            <div style="font-size:${labelS}px;text-transform:uppercase;letter-spacing:1px;color:rgba(255,255,255,.4)">Sales</div>
+            <div style="font-size:${statS}px;font-weight:900;color:#fff;font-family:'Bebas Neue',sans-serif">${s.sales||'—'}</div>
+          </div>
+          <div style="flex:1;background:rgba(255,255,255,.05);border-radius:${Math.round(w*.02)}px;padding:${Math.round(h*.02)}px ${Math.round(w*.03)}px">
+            <div style="font-size:${labelS}px;text-transform:uppercase;letter-spacing:1px;color:rgba(255,255,255,.4)">Ships from</div>
+            <div style="font-size:${statS}px;font-weight:900;color:#fff;font-family:'Bebas Neue',sans-serif">${s.shipFrom||'—'}</div>
+          </div>
+        </div>
+        ${s.insight?`<div style="background:rgba(255,255,255,.04);border-radius:${Math.round(w*.02)}px;padding:${Math.round(h*.018)}px ${Math.round(w*.04)}px;border-left:${Math.round(w*.006)}px solid ${OR}"><div style="font-size:${labelS}px;font-weight:800;text-transform:uppercase;letter-spacing:1.5px;color:${OR};margin-bottom:${Math.round(h*.006)}px">Why it works</div><div style="font-size:${bS}px;line-height:1.5;color:rgba(255,255,255,.7)">${s.insight}</div></div>`:''}
+      </div>`;
+  } else
+
+  // ── BUYER DEMOGRAPHIC ───────────────────────────────────────────────────────
+  if(s.type==='buyer_demo'){
+    const eyeS=sz('eyebrow',s.fs||1,w)*.65, h1S=sz('h1',s.fs||1,w)*.75, bS=sz('body',s.fs||1,w)*.8;
+    const labelS=sz('eyebrow',s.fs||1,w)*.55, statS=sz('stat',s.fs||1,w)*.65;
+    const imgW=Math.round(w*.36);
+    inner=`
+      ${s.bgImg?`<div style="position:absolute;top:0;right:0;bottom:0;width:${imgW}px;background:url('${s.bgImg}') calc(50% + ${(s.bgTransform&&s.bgTransform.x)||0}%) calc(50% + ${(s.bgTransform&&s.bgTransform.y)||0}%) / ${(s.bgTransform&&s.bgTransform.zoom)||100}% no-repeat;z-index:0"></div>`:'<div style="position:absolute;top:0;right:0;bottom:0;width:'+imgW+'px;background:rgba(255,107,0,.07);border-left:1.5px dashed rgba(255,107,0,.3);display:flex;align-items:center;justify-content:center;font-size:'+Math.round(w*.025)+'px;color:rgba(255,107,0,.4);font-weight:800;letter-spacing:2px;text-transform:uppercase;writing-mode:vertical-rl;z-index:0">BUYER PHOTO</div>'}
+      <div style="position:absolute;top:0;right:${imgW}px;bottom:0;left:0;background:linear-gradient(to right,#111 75%,transparent);z-index:1"></div>
+      <div style="position:absolute;top:${PAD}px;left:${PAD}px;right:${imgW+Math.round(w*.03)}px;bottom:${PAD}px;z-index:2;display:flex;flex-direction:column;justify-content:space-between">
+        <div>
+          <div style="font-size:${eyeS}px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:${OR};margin-bottom:${Math.round(h*.04)}px">${s.eyebrow||'Who buys this'}</div>
+          <div style="font-size:${h1S}px;font-weight:900;line-height:.9;color:#fff;font-family:'Bebas Neue',sans-serif">${hl(s.headline||'YOUR *BUYER*',OR)}</div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:${Math.round(h*.02)}px">
+          ${(s.demographics||[{label:'Age',value:'25–40'},{label:'Motivation',value:'Gift for ADHD partner'},{label:'Avg spend',value:'€18–22'}]).map(d=>`
+          <div style="padding:${Math.round(h*.022)}px ${Math.round(w*.05)}px;background:rgba(255,255,255,.04);border-radius:${Math.round(w*.02)}px">
+            <div style="font-size:${labelS}px;text-transform:uppercase;letter-spacing:1px;color:${OR};margin-bottom:${Math.round(h*.006)}px">${d.label}</div>
+            <div style="font-size:${bS}px;font-weight:700;color:#fff;line-height:1.3">${d.value}</div>
+          </div>`).join('')}
+        </div>
+      </div>`;
+  } else
+
+  // ── 3D PRINT ADVANTAGE ──────────────────────────────────────────────────────
+  if(s.type==='print_advantage'){
+    const eyeS=sz('eyebrow',s.fs||1,w)*.65, h1S=sz('h1',s.fs||1,w)*.8, bS=sz('body',s.fs||1,w)*.82;
+    const imgH=Math.round(h*.3);
+    inner=`
+      ${s.bgImg?`<div style="position:absolute;top:0;left:0;right:0;height:${imgH}px;background:url('${s.bgImg}') calc(50% + ${(s.bgTransform&&s.bgTransform.x)||0}%) calc(50% + ${(s.bgTransform&&s.bgTransform.y)||0}%) / ${(s.bgTransform&&s.bgTransform.zoom)||100}% no-repeat;z-index:0"></div>`:'<div style="position:absolute;top:0;left:0;right:0;height:'+imgH+'px;background:rgba(255,107,0,.07);border-bottom:1.5px dashed rgba(255,107,0,.3);display:flex;align-items:center;justify-content:center;font-size:'+Math.round(w*.025)+'px;color:rgba(255,107,0,.4);font-weight:800;letter-spacing:2px;text-transform:uppercase;z-index:0">PRINTER + PRODUCT</div>'}
+      <div style="position:absolute;top:${Math.round(imgH*.6)}px;left:0;right:0;height:${Math.round(imgH*.55)}px;background:linear-gradient(to bottom,transparent,#111);z-index:1"></div>
+      <div style="position:absolute;top:${imgH+Math.round(h*.01)}px;left:${PAD}px;right:${PAD}px;bottom:${PAD}px;z-index:2">
+        <div style="font-size:${eyeS}px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:${OR};margin-bottom:${Math.round(h*.02)}px">${s.eyebrow||'Why 3D print it?'}</div>
+        <div style="font-size:${h1S}px;font-weight:900;line-height:.9;color:#fff;font-family:'Bebas Neue',sans-serif;margin-bottom:${Math.round(h*.035)}px">${hl(s.headline||'WHAT FACTORIES *CAN\'T* DO',OR)}</div>
+        <div style="display:flex;flex-direction:column;gap:${Math.round(h*.018)}px">
+          ${(s.advantages||[{title:'No MOQ',body:'Print 1 or 100. No $500 factory minimum.'},{title:'Custom colors',body:'20 filament options. Factory mold = 1 color.'},{title:'On demand',body:'Print when ordered. Zero inventory risk.'}]).map(a=>`
+          <div style="display:flex;gap:${Math.round(w*.04)}px;align-items:center;padding:${Math.round(h*.02)}px ${Math.round(w*.04)}px;background:rgba(255,255,255,.04);border-radius:${Math.round(w*.02)}px">
+            <div style="width:${Math.round(w*.03)}px;height:${Math.round(w*.03)}px;border-radius:50%;background:${OR};flex-shrink:0"></div>
+            <div style="font-size:${bS}px;color:#fff;line-height:1.4"><span style="font-weight:900;color:${OR}">${a.title}</span> — ${a.body}</div>
+          </div>`).join('')}
+        </div>
+      </div>`;
+  } else
+
+  // ── SHIPPING EDGE (DYNAMIC) ─────────────────────────────────────────────────
+  if(s.type==='shipping_edge'){
+    const eyeS=sz('eyebrow',s.fs||1,w)*.65, h1S=sz('h1',s.fs||1,w)*.78;
+    const bS=sz('body',s.fs||1,w)*.78, statS=sz('stat',s.fs||1,w)*.75, labelS=sz('eyebrow',s.fs||1,w)*.55;
+    const imgH=Math.round(h*.32);
+    inner=`
+      <div style="position:absolute;inset:0;display:flex;flex-direction:column;padding:${PAD}px ${PAD}px ${Math.round(PAD*.8)}px">
+        <div style="font-size:${eyeS}px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:${OR};margin-bottom:${Math.round(h*.015)}px">${s.eyebrow||'Your shipping advantage'}</div>
+        <div style="font-size:${h1S}px;font-weight:900;line-height:.9;color:#fff;font-family:'Bebas Neue',sans-serif;margin-bottom:${Math.round(h*.03)}px">${hl(s.headline||'BEAT THE *TOP SELLER*',OR)}</div>
+        <div style="display:flex;gap:${Math.round(w*.025)}px;flex:1;min-height:0">
+          <div style="flex:1;border-radius:${Math.round(w*.025)}px;overflow:hidden;display:flex;flex-direction:column">
+            ${s.bgImg?`<div style="height:${imgH}px;background:url('${s.bgImg}') center/cover;opacity:.6"></div>`:`<div style="height:${imgH}px;background:rgba(255,255,255,.04);border-bottom:1px solid rgba(255,255,255,.08);display:flex;align-items:center;justify-content:center;font-size:${Math.round(w*.025)}px;color:rgba(255,255,255,.25);font-weight:800;text-transform:uppercase">THEIR LISTING</div>`}
+            <div style="flex:1;background:rgba(255,255,255,.05);padding:${Math.round(h*.022)}px ${Math.round(w*.05)}px;display:flex;flex-direction:column;gap:${Math.round(h*.018)}px">
+              <div><div style="font-size:${labelS}px;text-transform:uppercase;letter-spacing:1px;color:rgba(255,255,255,.4)">${s.competitorCountry||'Competitor'} seller</div><div style="font-size:${bS}px;font-weight:700;color:#fff">${s.competitorSales||'—'} sales · ${s.competitorRating||'4.9★'}</div></div>
+              <div><div style="font-size:${labelS}px;color:rgba(255,255,255,.4)">Product</div><div style="font-size:${statS}px;font-weight:900;color:#fff;font-family:'Bebas Neue',sans-serif">${s.competitorPrice||'€—'}</div></div>
+              <div><div style="font-size:${labelS}px;color:rgba(255,255,255,.4)">Ship to ${s.targetMarket||'US'}</div><div style="font-size:${statS}px;font-weight:900;color:#e24b4a;font-family:'Bebas Neue',sans-serif">+${s.competitorShipping||'€—'}</div></div>
+              <div style="background:rgba(226,75,74,.12);border-radius:${Math.round(w*.015)}px;padding:${Math.round(h*.015)}px ${Math.round(w*.04)}px">
+                <div style="font-size:${bS}px;font-weight:700;color:#e24b4a">Total: ${s.competitorTotal||'€—'}</div>
+                <div style="font-size:${labelS}px;color:rgba(255,255,255,.4);margin-top:${Math.round(h*.005)}px">Buyers abandon cart</div>
+              </div>
+            </div>
+          </div>
+          <div style="flex:1;border-radius:${Math.round(w*.025)}px;overflow:hidden;display:flex;flex-direction:column;outline:1.5px solid ${OR}">
+            <div style="height:${imgH}px;background:rgba(255,107,0,.1);display:flex;align-items:center;justify-content:center;font-size:${Math.round(w*.025)}px;font-weight:800;color:rgba(255,107,0,.5);text-transform:uppercase">YOUR LISTING</div>
+            <div style="flex:1;background:rgba(255,107,0,.1);padding:${Math.round(h*.022)}px ${Math.round(w*.05)}px;display:flex;flex-direction:column;gap:${Math.round(h*.018)}px">
+              <div><div style="font-size:${labelS}px;text-transform:uppercase;letter-spacing:1px;color:${OR}">You · Local ship</div><div style="font-size:${bS}px;font-weight:700;color:#fff">Same product</div></div>
+              <div><div style="font-size:${labelS}px;color:rgba(255,255,255,.4)">Product</div><div style="font-size:${statS}px;font-weight:900;color:${OR};font-family:'Bebas Neue',sans-serif">${s.yourPrice||s.competitorPrice||'€—'}</div></div>
+              <div><div style="font-size:${labelS}px;color:rgba(255,255,255,.4)">Ship to ${s.targetMarket||'US'}</div><div style="font-size:${statS}px;font-weight:900;color:#4ecb7a;font-family:'Bebas Neue',sans-serif">+${s.yourShipping||'€4'}</div></div>
+              <div style="background:rgba(78,203,122,.12);border-radius:${Math.round(w*.015)}px;padding:${Math.round(h*.015)}px ${Math.round(w*.04)}px">
+                <div style="font-size:${bS}px;font-weight:700;color:#4ecb7a">${s.shippingGap||'€—'} cheaper</div>
+                <div style="font-size:${labelS}px;color:rgba(255,255,255,.4);margin-top:${Math.round(h*.005)}px">You win on price</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>`;
+  } else
+
+  // ── KEYWORD DEMAND ──────────────────────────────────────────────────────────
+  if(s.type==='keywords'){
+    const eyeS=sz('eyebrow',s.fs||1,w)*.65, h1S=sz('h1',s.fs||1,w)*.78, bS=sz('body',s.fs||1,w)*.8;
+    const labelS=sz('eyebrow',s.fs||1,w)*.55;
+    const imgH=Math.round(h*.28);
+    const kws=s.keywords||[];
+    const maxVol=Math.max(...kws.map(k=>k.volume||0),1);
+    inner=`
+      ${s.bgImg?`<div style="position:absolute;top:0;left:0;right:0;height:${imgH}px;background:url('${s.bgImg}') calc(50% + ${(s.bgTransform&&s.bgTransform.x)||0}%) calc(50% + ${(s.bgTransform&&s.bgTransform.y)||0}%) / ${(s.bgTransform&&s.bgTransform.zoom)||100}% no-repeat;z-index:0"></div>`:'<div style="position:absolute;top:0;left:0;right:0;height:'+imgH+'px;background:rgba(255,107,0,.07);border-bottom:1.5px dashed rgba(255,107,0,.3);display:flex;align-items:center;justify-content:center;font-size:'+Math.round(w*.025)+'px;color:rgba(255,107,0,.4);font-weight:800;text-transform:uppercase;z-index:0">BG IMAGE</div>'}
+      <div style="position:absolute;top:${Math.round(imgH*.55)}px;left:0;right:0;height:${Math.round(imgH*.6)}px;background:linear-gradient(to bottom,transparent,#111);z-index:1"></div>
+      <div style="position:absolute;top:${imgH+Math.round(h*.01)}px;left:${PAD}px;right:${PAD}px;bottom:${PAD}px;z-index:2">
+        <div style="font-size:${eyeS}px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:${OR};margin-bottom:${Math.round(h*.015)}px">${s.eyebrow||'Buyers search this'}</div>
+        <div style="font-size:${h1S}px;font-weight:900;line-height:.9;color:#fff;font-family:'Bebas Neue',sans-serif;margin-bottom:${Math.round(h*.03)}px">${hl(s.headline||'KEYWORD *DEMAND*',OR)}</div>
+        <div style="display:flex;flex-direction:column;gap:${Math.round(h*.022)}px">
+          ${kws.map(k=>{
+            const pct=Math.round((k.volume/maxVol)*100);
+            const clr=pct>=70?OR:pct>=35?'rgba(255,200,50,1)':'rgba(255,255,255,.3)';
+            const tclr=pct>=70?OR:pct>=35?'rgba(255,200,50,1)':'rgba(255,255,255,.45)';
+            return `<div style="display:flex;align-items:center;gap:${Math.round(w*.025)}px">
+              <div style="font-size:${labelS}px;font-weight:700;width:${Math.round(w*.38)}px;color:${pct<35?'rgba(255,255,255,.5)':'#fff'};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${k.term}</div>
+              <div style="flex:1;height:${Math.round(h*.006)}px;background:rgba(255,255,255,.1);border-radius:${Math.round(w*.005)}px"><div style="width:${pct}%;height:100%;background:${clr};border-radius:${Math.round(w*.005)}px"></div></div>
+              <div style="font-size:${labelS}px;font-weight:900;color:${tclr};width:${Math.round(w*.14)}px;text-align:right">${k.volume>=1000?(k.volume/1000).toFixed(1)+'K':k.volume}</div>
+            </div>`;
+          }).join('')}
+        </div>
+        ${s.opportunity?`<div style="margin-top:${Math.round(h*.025)}px;padding:${Math.round(h*.018)}px ${Math.round(w*.04)}px;background:rgba(255,107,0,.1);border-radius:${Math.round(w*.02)}px;border-left:${Math.round(w*.006)}px solid ${OR}"><div style="font-size:${bS}px;line-height:1.5;color:#fff"><span style="font-weight:900;color:${OR}">Gap: </span>${s.opportunity}</div></div>`:''}
+      </div>`;
+  } else
+
+  // ── GENERIC VS PERSONALISED ─────────────────────────────────────────────────
+  if(s.type==='generic_vs_personal'){
+    const eyeS=sz('eyebrow',s.fs||1,w)*.65, h1S=sz('h1',s.fs||1,w)*.82;
+    const bS=sz('body',s.fs||1,w)*.75, statS=sz('stat',s.fs||1,w)*.85, labelS=sz('eyebrow',s.fs||1,w)*.55;
+    const imgH=Math.round(h*.36);
+    inner=`
+      <div style="position:absolute;inset:0;display:flex;flex-direction:column;padding:${PAD}px ${PAD}px ${Math.round(PAD*.8)}px;gap:${Math.round(h*.02)}px">
+        <div>
+          <div style="font-size:${eyeS}px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:${OR};margin-bottom:${Math.round(h*.01)}px">${s.eyebrow||'Generic vs personalised'}</div>
+          <div style="font-size:${h1S}px;font-weight:900;line-height:.9;color:#fff;font-family:'Bebas Neue',sans-serif">${hl(s.headline||'SAME PRINT. *3X* THE PRICE.',OR)}</div>
+        </div>
+        <div style="display:flex;gap:${Math.round(w*.025)}px;flex:1;min-height:0">
+          <div style="flex:1;border-radius:${Math.round(w*.025)}px;overflow:hidden;display:flex;flex-direction:column">
+            ${s.genericImg?`<div style="height:${imgH}px;background:url('${s.genericImg}') center/cover"></div>`:`<div style="height:${imgH}px;background:rgba(255,255,255,.04);border:1.5px dashed rgba(255,255,255,.15);display:flex;align-items:center;justify-content:center;font-size:${Math.round(w*.025)}px;color:rgba(255,255,255,.2);font-weight:800;text-transform:uppercase">GENERIC</div>`}
+            <div style="flex:1;background:rgba(255,255,255,.05);padding:${Math.round(h*.022)}px ${Math.round(w*.05)}px;display:flex;flex-direction:column;gap:${Math.round(h*.015)}px">
+              <div style="font-size:${labelS}px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:rgba(255,255,255,.4)">Generic</div>
+              <div style="font-size:${statS}px;font-weight:900;color:#fff;font-family:'Bebas Neue',sans-serif">${s.genericPrice||'€7'}</div>
+              ${(s.genericPoints||[]).map(p=>`<div style="font-size:${bS*.85}px;color:rgba(255,255,255,.4);line-height:1.4">${p}</div>`).join('')}
+            </div>
+          </div>
+          <div style="flex:1;border-radius:${Math.round(w*.025)}px;overflow:hidden;display:flex;flex-direction:column;outline:1.5px solid ${OR}">
+            ${s.bgImg?`<div style="height:${imgH}px;background:url('${s.bgImg}') calc(50% + ${(s.bgTransform&&s.bgTransform.x)||0}%) calc(50% + ${(s.bgTransform&&s.bgTransform.y)||0}%) / ${(s.bgTransform&&s.bgTransform.zoom)||100}% no-repeat"></div>`:`<div style="height:${imgH}px;background:rgba(255,107,0,.1);display:flex;align-items:center;justify-content:center;font-size:${Math.round(w*.025)}px;color:rgba(255,107,0,.4);font-weight:800;text-transform:uppercase">PERSONALISED</div>`}
+            <div style="flex:1;background:rgba(255,107,0,.12);padding:${Math.round(h*.022)}px ${Math.round(w*.05)}px;display:flex;flex-direction:column;gap:${Math.round(h*.015)}px">
+              <div style="font-size:${labelS}px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:${OR}">${s.personalLabel||'Personalised'}</div>
+              <div style="font-size:${statS}px;font-weight:900;color:${OR};font-family:'Bebas Neue',sans-serif">${s.personalPrice||'€22'}</div>
+              ${(s.personalPoints||[]).map(p=>`<div style="font-size:${bS*.85}px;color:rgba(255,255,255,.55);line-height:1.4">${p}</div>`).join('')}
+            </div>
+          </div>
+        </div>
+      </div>`;
+  } else
+
+  // ── MARKET SCORE ────────────────────────────────────────────────────────────
+  if(s.type==='market_score'){
+    const eyeS=sz('eyebrow',s.fs||1,w)*.65, h1S=sz('h1',s.fs||1,w)*.82, bS=sz('body',s.fs||1,w)*.8;
+    const labelS=sz('eyebrow',s.fs||1,w)*.55, imgW=Math.round(w*.37);
+    const scores=s.scores||[{label:'Search volume',value:s.searchVol||'—',pct:70,color:OR},{label:'Competition',value:s.competitionLevel||'Medium',pct:48,color:'rgba(255,200,50,1)'},{label:'Margin',value:s.marginLevel||'High',pct:88,color:'#4ecb7a'}];
+    inner=`
+      ${s.bgImg?`<div style="position:absolute;top:0;right:0;bottom:0;width:${imgW}px;background:url('${s.bgImg}') calc(50% + ${(s.bgTransform&&s.bgTransform.x)||0}%) calc(50% + ${(s.bgTransform&&s.bgTransform.y)||0}%) / ${(s.bgTransform&&s.bgTransform.zoom)||100}% no-repeat;z-index:0"></div>`:'<div style="position:absolute;top:0;right:0;bottom:0;width:'+imgW+'px;background:rgba(255,107,0,.07);border-left:1.5px dashed rgba(255,107,0,.3);display:flex;align-items:center;justify-content:center;font-size:'+Math.round(w*.025)+'px;color:rgba(255,107,0,.4);font-weight:800;text-transform:uppercase;writing-mode:vertical-rl;z-index:0">BG IMAGE</div>'}
+      <div style="position:absolute;top:0;right:${imgW}px;bottom:0;left:0;background:linear-gradient(to right,#111 75%,transparent);z-index:1"></div>
+      <div style="position:absolute;top:${PAD}px;left:${PAD}px;right:${imgW+Math.round(w*.03)}px;bottom:${PAD}px;z-index:2;display:flex;flex-direction:column;justify-content:space-between">
+        <div>
+          <div style="font-size:${eyeS}px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:${OR};margin-bottom:${Math.round(h*.03)}px">${s.eyebrow||'Worth selling?'}</div>
+          <div style="font-size:${h1S}px;font-weight:900;line-height:.9;color:#fff;font-family:'Bebas Neue',sans-serif">${hl(s.headline||'MARKET *SCORE*',OR)}</div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:${Math.round(h*.03)}px">
+          ${scores.map(sc=>`
+          <div>
+            <div style="display:flex;justify-content:space-between;margin-bottom:${Math.round(h*.012)}px">
+              <span style="font-size:${labelS}px;color:rgba(255,255,255,.5)">${sc.label}</span>
+              <span style="font-size:${labelS}px;font-weight:900;color:${sc.color}">${sc.value}</span>
+            </div>
+            <div style="height:${Math.round(h*.007)}px;background:rgba(255,255,255,.1);border-radius:${Math.round(w*.005)}px">
+              <div style="width:${sc.pct}%;height:100%;background:${sc.color};border-radius:${Math.round(w*.005)}px"></div>
+            </div>
+          </div>`).join('')}
+          ${s.verdict?`<div style="padding:${Math.round(h*.022)}px ${Math.round(w*.04)}px;background:rgba(255,107,0,.12);border-radius:${Math.round(w*.02)}px"><div style="font-size:${labelS}px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:${OR};margin-bottom:${Math.round(h*.008)}px">Verdict</div><div style="font-size:${bS}px;line-height:1.5;color:#fff">${s.verdict}</div></div>`:''}
+        </div>
+      </div>`;
+  } else
+
+  // ── WHAT TO IMPROVE ─────────────────────────────────────────────────────────
+  if(s.type==='improvements'){
+    const eyeS=sz('eyebrow',s.fs||1,w)*.65, h1S=sz('h1',s.fs||1,w)*.82, bS=sz('body',s.fs||1,w)*.8;
+    const imgH=Math.round(h*.3);
+    inner=`
+      ${s.bgImg?`<div style="position:absolute;top:0;left:0;right:0;height:${imgH}px;background:url('${s.bgImg}') calc(50% + ${(s.bgTransform&&s.bgTransform.x)||0}%) calc(50% + ${(s.bgTransform&&s.bgTransform.y)||0}%) / ${(s.bgTransform&&s.bgTransform.zoom)||100}% no-repeat;z-index:0"></div>`:'<div style="position:absolute;top:0;left:0;right:0;height:'+imgH+'px;background:rgba(255,107,0,.07);border-bottom:1.5px dashed rgba(255,107,0,.3);display:flex;align-items:center;justify-content:center;font-size:'+Math.round(w*.025)+'px;color:rgba(255,107,0,.4);font-weight:800;text-transform:uppercase;z-index:0">BG IMAGE</div>'}
+      <div style="position:absolute;top:${Math.round(imgH*.55)}px;left:0;right:0;height:${Math.round(imgH*.55)}px;background:linear-gradient(to bottom,transparent,#111);z-index:1"></div>
+      <div style="position:absolute;top:${imgH+Math.round(h*.01)}px;left:${PAD}px;right:${PAD}px;bottom:${PAD}px;z-index:2">
+        <div style="font-size:${eyeS}px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:${OR};margin-bottom:${Math.round(h*.015)}px">${s.eyebrow||'What could be improved'}</div>
+        <div style="font-size:${h1S}px;font-weight:900;line-height:.9;color:#fff;font-family:'Bebas Neue',sans-serif;margin-bottom:${Math.round(h*.03)}px">${hl(s.headline||'MOST SELLERS *MISS THIS*',OR)}</div>
+        <div style="display:flex;flex-direction:column;gap:${Math.round(h*.02)}px">
+          ${(s.improvements||[]).map(imp=>`
+          <div style="display:flex;gap:${Math.round(w*.04)}px;align-items:flex-start;padding:${Math.round(h*.022)}px ${Math.round(w*.04)}px;background:rgba(255,255,255,.04);border-radius:${Math.round(w*.02)}px;border-left:${Math.round(w*.006)}px solid ${OR}">
+            <div style="font-size:${bS}px;line-height:1.5;color:#fff"><span style="font-weight:900;color:${OR}">${imp.label}</span> — ${imp.body}</div>
+          </div>`).join('')}
+        </div>
+      </div>`;
+  } else
+
+  // ── PROFIT TIMELINE ─────────────────────────────────────────────────────────
+  if(s.type==='profit_timeline'){
+    const eyeS=sz('eyebrow',s.fs||1,w)*.65, h1S=sz('h1',s.fs||1,w)*.82, bS=sz('body',s.fs||1,w)*.78;
+    const labelS=sz('eyebrow',s.fs||1,w)*.55, imgW=Math.round(w*.34);
+    const months=s.months||[];
+    const maxVal=Math.max(...months.map(m=>m.revenue||0),1);
+    inner=`
+      ${s.bgImg?`<div style="position:absolute;top:0;right:0;bottom:0;width:${imgW}px;background:url('${s.bgImg}') calc(50% + ${(s.bgTransform&&s.bgTransform.x)||0}%) calc(50% + ${(s.bgTransform&&s.bgTransform.y)||0}%) / ${(s.bgTransform&&s.bgTransform.zoom)||100}% no-repeat;z-index:0"></div>`:'<div style="position:absolute;top:0;right:0;bottom:0;width:'+imgW+'px;background:rgba(255,107,0,.07);border-left:1.5px dashed rgba(255,107,0,.3);display:flex;align-items:center;justify-content:center;font-size:'+Math.round(w*.02)+'px;color:rgba(255,107,0,.4);font-weight:800;text-transform:uppercase;writing-mode:vertical-rl;z-index:0">BG IMAGE</div>'}
+      <div style="position:absolute;top:0;right:${imgW}px;bottom:0;left:0;background:linear-gradient(to right,#111 70%,transparent);z-index:1"></div>
+      <div style="position:absolute;top:${PAD}px;left:${PAD}px;right:${imgW+Math.round(w*.03)}px;bottom:${PAD}px;z-index:2;display:flex;flex-direction:column;justify-content:space-between">
+        <div>
+          <div style="font-size:${eyeS}px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:${OR};margin-bottom:${Math.round(h*.03)}px">${s.eyebrow||'Month by month'}</div>
+          <div style="font-size:${h1S}px;font-weight:900;line-height:.9;color:#fff;font-family:'Bebas Neue',sans-serif">${hl(s.headline||'SCALE *TIMELINE*',OR)}</div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:${Math.round(h*.025)}px">
+          ${months.map((m,i)=>{
+            const pct=Math.round((m.revenue/maxVal)*100);
+            const isLast=i===months.length-1;
+            return `<div style="display:flex;gap:${Math.round(w*.03)}px;align-items:center">
+              <div style="font-size:${labelS}px;font-weight:800;width:${Math.round(w*.14)}px;color:${isLast?OR:'rgba(255,255,255,.4)'}">${m.label}</div>
+              <div style="flex:1;height:${Math.round(h*.007)}px;background:rgba(255,255,255,.08);border-radius:${Math.round(w*.004)}px"><div style="width:${pct}%;height:100%;background:${OR};border-radius:${Math.round(w*.004)}px"></div></div>
+              <div style="font-size:${labelS*(isLast?1.1:1)}px;font-weight:900;width:${Math.round(w*.22)}px;text-align:right;color:${isLast?OR:'#fff'}">${m.value}</div>
+            </div>`;
+          }).join('')}
+          ${s.footnote?`<div style="font-size:${labelS}px;color:rgba(255,255,255,.35);line-height:1.5;margin-top:${Math.round(h*.01)}px">${s.footnote}</div>`:''}
+        </div>
+      </div>`;
+  } else
+
+  // ── SEASONAL DEMAND ─────────────────────────────────────────────────────────
+  if(s.type==='seasonal'){
+    const eyeS=sz('eyebrow',s.fs||1,w)*.65, h1S=sz('h1',s.fs||1,w)*.82, bS=sz('body',s.fs||1,w)*.8;
+    const labelS=sz('eyebrow',s.fs||1,w)*.55, imgH=Math.round(h*.3);
+    const seasons=s.seasons||[];
+    const maxPct=Math.max(...seasons.map(ss=>ss.pct||0),1);
+    inner=`
+      ${s.bgImg?`<div style="position:absolute;top:0;left:0;right:0;height:${imgH}px;background:url('${s.bgImg}') calc(50% + ${(s.bgTransform&&s.bgTransform.x)||0}%) calc(50% + ${(s.bgTransform&&s.bgTransform.y)||0}%) / ${(s.bgTransform&&s.bgTransform.zoom)||100}% no-repeat;z-index:0"></div>`:'<div style="position:absolute;top:0;left:0;right:0;height:'+imgH+'px;background:rgba(255,107,0,.07);border-bottom:1.5px dashed rgba(255,107,0,.3);display:flex;align-items:center;justify-content:center;font-size:'+Math.round(w*.025)+'px;color:rgba(255,107,0,.4);font-weight:800;text-transform:uppercase;z-index:0">BG IMAGE</div>'}
+      <div style="position:absolute;top:${Math.round(imgH*.55)}px;left:0;right:0;height:${Math.round(imgH*.55)}px;background:linear-gradient(to bottom,transparent,#111);z-index:1"></div>
+      <div style="position:absolute;top:${imgH+Math.round(h*.01)}px;left:${PAD}px;right:${PAD}px;bottom:${PAD}px;z-index:2">
+        <div style="font-size:${eyeS}px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:${OR};margin-bottom:${Math.round(h*.015)}px">${s.eyebrow||'When to sell'}</div>
+        <div style="font-size:${h1S}px;font-weight:900;line-height:.9;color:#fff;font-family:'Bebas Neue',sans-serif;margin-bottom:${Math.round(h*.03)}px">${hl(s.headline||'PEAK *SEASONS*',OR)}</div>
+        <div style="display:flex;flex-direction:column;gap:${Math.round(h*.02)}px">
+          ${seasons.map(ss=>{
+            const rel=ss.pct/maxPct;
+            const clr=rel>=0.8?OR:rel>=0.5?'rgba(255,200,50,1)':'rgba(255,255,255,.3)';
+            const sbg=rel>=0.8?'rgba(255,107,0,.12)':'rgba(255,255,255,.04)';
+            const sbr=rel>=0.8?'1px solid rgba(255,107,0,.3)':'1px solid transparent';
+            return '<div style="display:flex;align-items:center;gap:'+Math.round(w*.025)+'px;padding:'+Math.round(h*.018)+'px '+Math.round(w*.04)+'px;border-radius:'+Math.round(w*.02)+'px;background:'+sbg+';border:'+sbr+'">'
+              +'<div style="font-size:'+labelS+'px;font-weight:900;width:'+Math.round(w*.2)+'px;color:'+clr+'">'+ss.period+'</div>'
+              +'<div style="flex:1;height:'+Math.round(h*.007)+'px;background:rgba(255,255,255,.1);border-radius:'+Math.round(w*.004)+'px"><div style="width:'+ss.pct+'%;height:100%;background:'+clr+';border-radius:'+Math.round(w*.004)+'px"></div></div>'
+              +'<div style="font-size:'+labelS+'px;font-weight:700;width:'+Math.round(w*.18)+'px;text-align:right;color:'+clr+'">'+ss.label+'</div>'
+              +'</div>';
+          }).join('')}
+        </div>
+        ${s.action?`<div style="margin-top:${Math.round(h*.025)}px;padding:${Math.round(h*.018)}px ${Math.round(w*.04)}px;background:rgba(255,255,255,.04);border-radius:${Math.round(w*.02)}px"><div style="font-size:${bS}px;line-height:1.5;color:#fff"><span style="font-weight:900;color:${OR}">Action: </span>${s.action}</div></div>`:''}
+      </div>`;
+  } else
+
+  // ── BESTSELLER FORMULA ──────────────────────────────────────────────────────
+  if(s.type==='bestseller_formula'){
+    const eyeS=sz('eyebrow',s.fs||1,w)*.65, h1S=sz('h1',s.fs||1,w)*.82, bS=sz('body',s.fs||1,w)*.8;
+    const labelS=sz('eyebrow',s.fs||1,w)*.55, imgH=Math.round(h*.3);
+    inner=`
+      ${s.bgImg?`<div style="position:absolute;top:0;left:0;right:0;height:${imgH}px;background:url('${s.bgImg}') calc(50% + ${(s.bgTransform&&s.bgTransform.x)||0}%) calc(50% + ${(s.bgTransform&&s.bgTransform.y)||0}%) / ${(s.bgTransform&&s.bgTransform.zoom)||100}% no-repeat;z-index:0"></div>`:'<div style="position:absolute;top:0;left:0;right:0;height:'+imgH+'px;background:rgba(255,107,0,.07);border-bottom:1.5px dashed rgba(255,107,0,.3);display:flex;align-items:center;justify-content:center;font-size:'+Math.round(w*.025)+'px;color:rgba(255,107,0,.4);font-weight:800;text-transform:uppercase;z-index:0">TOP LISTING SCREENSHOT</div>'}
+      <div style="position:absolute;top:${Math.round(imgH*.55)}px;left:0;right:0;height:${Math.round(imgH*.55)}px;background:linear-gradient(to bottom,transparent,#111);z-index:1"></div>
+      <div style="position:absolute;top:${imgH+Math.round(h*.01)}px;left:${PAD}px;right:${PAD}px;bottom:${PAD}px;z-index:2">
+        <div style="font-size:${eyeS}px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:${OR};margin-bottom:${Math.round(h*.015)}px">${s.eyebrow||'Bestseller formula'}</div>
+        <div style="font-size:${h1S}px;font-weight:900;line-height:.9;color:#fff;font-family:'Bebas Neue',sans-serif;margin-bottom:${Math.round(h*.025)}px">${hl(s.headline||'WHAT THE *#1 SELLER* DOES',OR)}</div>
+        <div style="display:flex;flex-direction:column;gap:${Math.round(h*.016)}px">
+          ${(s.checklist||[]).map(item=>`
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:${Math.round(h*.018)}px ${Math.round(w*.04)}px;background:rgba(255,255,255,.04);border-radius:${Math.round(w*.02)}px">
+            <div style="font-size:${bS}px;color:#fff">${item.label}</div>
+            <div style="font-size:${labelS}px;font-weight:700;background:rgba(78,203,122,.15);border-radius:${Math.round(w*.015)}px;padding:${Math.round(h*.006)}px ${Math.round(w*.025)}px;color:#4ecb7a;white-space:nowrap">${item.value}</div>
+          </div>`).join('')}
+        </div>
+      </div>`;
+  } else
+
+  // ── VERTICAL LEDGER ─────────────────────────────────────────────────────────
+  if(s.type==='ledger'){
+    const eyeS=sz('eyebrow',s.fs||1,w)*.65, h1S=sz('h1',s.fs||1,w)*.82, bS=sz('body',s.fs||1,w)*.8;
+    const labelS=sz('eyebrow',s.fs||1,w)*.55, imgH=Math.round(h*.42);
+    const rows=s.rows||[];
+    inner=`
+      ${s.bgImg?`<div style="position:absolute;top:0;left:0;right:0;height:${imgH}px;background:url('${s.bgImg}') calc(50% + ${(s.bgTransform&&s.bgTransform.x)||0}%) calc(50% + ${(s.bgTransform&&s.bgTransform.y)||0}%) / ${(s.bgTransform&&s.bgTransform.zoom)||100}% no-repeat;z-index:0"></div>`:'<div style="position:absolute;top:0;left:0;right:0;height:'+imgH+'px;background:rgba(255,107,0,.07);border-bottom:1.5px dashed rgba(255,107,0,.3);display:flex;align-items:center;justify-content:center;font-size:'+Math.round(w*.025)+'px;color:rgba(255,107,0,.4);font-weight:800;text-transform:uppercase;z-index:0">BG IMAGE</div>'}
+      <div style="position:absolute;top:${Math.round(imgH*.55)}px;left:0;right:0;height:${Math.round(imgH*.55)}px;background:linear-gradient(to bottom,transparent,#111);z-index:1"></div>
+      <div style="position:absolute;top:${imgH+Math.round(h*.01)}px;left:${PAD}px;right:${PAD}px;bottom:${PAD}px;z-index:2">
+        <div style="font-size:${eyeS}px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:${OR};margin-bottom:${Math.round(h*.012)}px">${s.eyebrow||'The real margin'}</div>
+        <div style="font-size:${h1S}px;font-weight:900;line-height:.9;color:#fff;font-family:'Bebas Neue',sans-serif;margin-bottom:${Math.round(h*.025)}px">${hl(s.headline||'COST vs *SELL PRICE*',OR)}</div>
+        <div style="background:rgba(0,0,0,.5);border-radius:${Math.round(w*.025)}px;overflow:hidden">
+          ${rows.map((row,i)=>{
+            const isTotal=!!row.isTotal;
+            return `<div style="display:flex;justify-content:space-between;align-items:center;padding:${Math.round(h*.022)}px ${Math.round(w*.05)}px;${i<rows.length-1?'border-bottom:1px solid rgba(255,255,255,.07)':''};background:${isTotal?'rgba(255,107,0,.18)':'transparent'}">
+              <span style="font-size:${isTotal?bS:labelS}px;font-weight:${isTotal?700:400};color:${isTotal?OR:'rgba(255,255,255,.5)'}">${row.label}</span>
+              <span style="font-size:${isTotal?Math.round(h1S*.75):bS}px;font-weight:900;color:${isTotal?OR:'#fff'};font-family:'Bebas Neue',sans-serif">${row.value}</span>
+            </div>`;
+          }).join('')}
+        </div>
+      </div>`;
+  } else
 
 
   return `<div style="width:${w}px;height:${h}px;position:relative;overflow:hidden;font-family:'DM Sans',sans-serif;background:#111">${bg}${dots}${inner}${pb}${wm}${ct}</div>`;
@@ -1409,94 +1794,176 @@ function imgSliderChange(axis, val) {
   if (!s || !s.bgImg) return;
   if (!s.bgTransform) s.bgTransform = {zoom:100, x:0, y:0};
   s.bgTransform[axis] = parseInt(val);
-  const zv = document.getElementById('imgEditZoomVal');
-  const xv = document.getElementById('imgEditXVal');
-  const yv = document.getElementById('imgEditYVal');
-  if (axis==='zoom' && zv) zv.textContent = val + '%';
-  if (axis==='x'    && xv) xv.textContent = (val>0?'+':'') + val + '%';
-  if (axis==='y'    && yv) yv.textContent = (val>0?'+':'') + val + '%';
+  const zv=document.getElementById('imgEditZoomVal'), xv=document.getElementById('imgEditXVal'), yv=document.getElementById('imgEditYVal');
+  if (axis==='zoom' && zv) zv.textContent = val+'%';
+  if (axis==='x'    && xv) xv.textContent = (val>0?'+':'')+val+'%';
+  if (axis==='y'    && yv) yv.textContent = (val>0?'+':'')+val+'%';
   refresh();
 }
-
-function imgReset(i) {
-  if (!SLIDES[i]) return;
-  SLIDES[i].bgTransform = {zoom:100, x:0, y:0};
-  buildEditor(SLIDES[i]);
-  refresh();
-}
-
+function imgReset(i) { if(!SLIDES[i])return; SLIDES[i].bgTransform={zoom:100,x:0,y:0}; buildEditor(SLIDES[i]); refresh(); }
 function imgSyncSliders(s) {
-  if (!s || !s.bgTransform) return;
-  const t = s.bgTransform;
-  const zoom = document.getElementById('imgEditZoom');
-  const x    = document.getElementById('imgEditX');
-  const y    = document.getElementById('imgEditY');
-  const zv   = document.getElementById('imgEditZoomVal');
-  const xv   = document.getElementById('imgEditXVal');
-  const yv   = document.getElementById('imgEditYVal');
-  if (zoom) zoom.value = t.zoom;
-  if (x)    x.value    = t.x;
-  if (y)    y.value    = t.y;
-  if (zv)   zv.textContent = t.zoom + '%';
-  if (xv)   xv.textContent = (t.x>0?'+':'') + t.x + '%';
-  if (yv)   yv.textContent = (t.y>0?'+':'') + t.y + '%';
+  if(!s||!s.bgTransform)return; const t=s.bgTransform;
+  const zoom=document.getElementById('imgEditZoom'), x=document.getElementById('imgEditX'), y=document.getElementById('imgEditY');
+  const zv=document.getElementById('imgEditZoomVal'), xv=document.getElementById('imgEditXVal'), yv=document.getElementById('imgEditYVal');
+  if(zoom)zoom.value=t.zoom; if(x)x.value=t.x; if(y)y.value=t.y;
+  if(zv)zv.textContent=t.zoom+'%'; if(xv)xv.textContent=(t.x>0?'+':'')+t.x+'%'; if(yv)yv.textContent=(t.y>0?'+':'')+t.y+'%';
 }
-
 function imgEditWheel(e) {
-  const s = SLIDES[cur];
-  if (!s || !s.bgImg) return;
-  e.preventDefault();
-  if (!s.bgTransform) s.bgTransform = {zoom:100, x:0, y:0};
-  s.bgTransform.zoom = Math.max(50, Math.min(300, s.bgTransform.zoom + (e.deltaY > 0 ? -5 : 5)));
-  imgSyncSliders(s);
-  refresh();
+  const s=SLIDES[cur]; if(!s||!s.bgImg)return; e.preventDefault();
+  if(!s.bgTransform)s.bgTransform={zoom:100,x:0,y:0};
+  s.bgTransform.zoom=Math.max(50,Math.min(300,s.bgTransform.zoom+(e.deltaY>0?-5:5)));
+  imgSyncSliders(s); refresh();
 }
-
 function imgEditDragStart(e) {
-  const s = SLIDES[cur];
-  if (!s || !s.bgImg) return;
-  if (e.target.getAttribute && e.target.getAttribute('contenteditable')) return;
-  if (e.target.tagName === 'BUTTON') return;
-  if (e.target.getAttribute && e.target.getAttribute('data-ce')) return;
+  const s=SLIDES[cur]; if(!s||!s.bgImg)return;
+  if(e.target.getAttribute&&e.target.getAttribute('contenteditable'))return;
+  if(e.target.tagName==='BUTTON')return;
+  if(e.target.getAttribute&&e.target.getAttribute('data-ce'))return;
   e.preventDefault();
-  const sf = document.getElementById('sf');
-  sf.style.cursor = 'grabbing';
-  if (!s.bgTransform) s.bgTransform = {zoom:100, x:0, y:0};
-  const startX = e.clientX ?? e.touches?.[0]?.clientX;
-  const startY = e.clientY ?? e.touches?.[0]?.clientY;
-  const startPX = s.bgTransform.x;
-  const startPY = s.bgTransform.y;
-  const scale = Math.max(0.3, s.bgTransform.zoom / 200);
-  function onMove(ev) {
-    const cx = ev.clientX ?? ev.touches?.[0]?.clientX ?? startX;
-    const cy = ev.clientY ?? ev.touches?.[0]?.clientY ?? startY;
-    s.bgTransform.x = Math.max(-100, Math.min(100, startPX + Math.round((cx - startX) / scale)));
-    s.bgTransform.y = Math.max(-100, Math.min(100, startPY + Math.round((cy - startY) / scale)));
-    imgSyncSliders(s);
-    refresh();
+  const sf=document.getElementById('sf'); sf.style.cursor='grabbing';
+  if(!s.bgTransform)s.bgTransform={zoom:100,x:0,y:0};
+  const sx=e.clientX??e.touches?.[0]?.clientX, sy=e.clientY??e.touches?.[0]?.clientY;
+  const spx=s.bgTransform.x, spy=s.bgTransform.y, scale=Math.max(0.3,s.bgTransform.zoom/200);
+  function onMove(ev){
+    const cx=ev.clientX??ev.touches?.[0]?.clientX??sx, cy=ev.clientY??ev.touches?.[0]?.clientY??sy;
+    s.bgTransform.x=Math.max(-100,Math.min(100,spx+Math.round((cx-sx)/scale)));
+    s.bgTransform.y=Math.max(-100,Math.min(100,spy+Math.round((cy-sy)/scale)));
+    imgSyncSliders(s); refresh();
   }
-  function onUp() {
-    sf.style.cursor = '';
-    document.removeEventListener('mousemove', onMove);
-    document.removeEventListener('mouseup', onUp);
-    document.removeEventListener('touchmove', onMove);
-    document.removeEventListener('touchend', onUp);
+  function onUp(){ sf.style.cursor=''; document.removeEventListener('mousemove',onMove); document.removeEventListener('mouseup',onUp); document.removeEventListener('touchmove',onMove); document.removeEventListener('touchend',onUp); }
+  document.addEventListener('mousemove',onMove); document.addEventListener('mouseup',onUp);
+  document.addEventListener('touchmove',onMove,{passive:false}); document.addEventListener('touchend',onUp);
+}
+function imgEditOpen(i){if(SLIDES[i]&&SLIDES[i].bgImg)buildEditor(SLIDES[i]);}
+function imgEditClose(){}
+function imgEditLiveUpdate(){imgSliderChange('zoom',document.getElementById('imgEditZoom')?.value||100);}
+function imgEditPanUpdate(){const x=document.getElementById('imgEditX');if(x)imgSliderChange('x',x.value);const y=document.getElementById('imgEditY');if(y)imgSliderChange('y',y.value);}
+function imgEditReset(){imgReset(cur);}
+
+
+// ═══════════════════════════════════════════════════
+// IMAGE GALLERY — fetch product images from web
+// ═══════════════════════════════════════════════════
+async function showImageGallery(topic) {
+  const msgs = document.getElementById('msgs');
+  const galleryMsg = document.createElement('div');
+  galleryMsg.className = 'msg ai';
+  galleryMsg.id = 'imgGalleryMsg';
+  galleryMsg.innerHTML = `<div class="img-gallery">
+    <div class="img-gallery-title">Product images — click to use as background</div>
+    <div class="img-gallery-loading" id="galleryStatus">Searching for images…</div>
+    <div class="img-gallery-grid" id="galleryGrid"></div>
+  </div>`;
+  msgs.appendChild(galleryMsg);
+  msgs.scrollTop = msgs.scrollHeight;
+
+  try {
+    // Use Claude to search for image URLs via web search
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 600,
+        tools: [{ type: 'web_search_20250305', name: 'web_search' }],
+        system: `Find 6-9 real product image URLs for: "${topic}".
+Search Etsy, Google Images, or product sites. Return ONLY a JSON array of direct image URLs (ending in .jpg .jpeg .png .webp).
+Prefer: clean product photos, lifestyle shots, workshop photos.
+Return ONLY valid JSON array: ["url1", "url2", ...]`,
+        messages: [{ role: 'user', content: `Find product images for: ${topic}` }]
+      })
+    });
+    const data = await res.json();
+
+    // Extract URLs from response
+    let urls = [];
+    for (const block of data.content||[]) {
+      if (block.type === 'text') {
+        try {
+          const match = block.text.match(/\[.*?\]/s);
+          if (match) { urls = JSON.parse(match[0]); break; }
+        } catch(e) {}
+      }
+    }
+
+    const grid = document.getElementById('galleryGrid');
+    const status = document.getElementById('galleryStatus');
+
+    if (!urls.length) {
+      status.textContent = 'No images found — upload your own in the editor panel.';
+      return;
+    }
+
+    status.textContent = '';
+    let loaded = 0;
+
+    urls.slice(0, 9).forEach((url, i) => {
+      const thumb = document.createElement('div');
+      thumb.className = 'img-thumb';
+      thumb.id = 'gthumb'+i;
+      thumb.innerHTML = `<img src="${url}" onerror="this.parentElement.style.display='none'" onload="this.parentElement.classList.add('loaded')" crossorigin="anonymous"><div class="use-btn">USE</div>`;
+      thumb.onclick = () => useGalleryImage(url, i);
+      grid.appendChild(thumb);
+    });
+
+    msgs.scrollTop = msgs.scrollHeight;
+  } catch(e) {
+    const status = document.getElementById('galleryStatus');
+    if (status) status.textContent = 'Image search unavailable — upload your own.';
   }
-  document.addEventListener('mousemove', onMove);
-  document.addEventListener('mouseup', onUp);
-  document.addEventListener('touchmove', onMove, {passive:false});
-  document.addEventListener('touchend', onUp);
 }
 
-// Stubs for any legacy calls
-function imgEditOpen(i) { if(SLIDES[i]&&SLIDES[i].bgImg) buildEditor(SLIDES[i]); }
-function imgEditClose() {}
-function imgEditLiveUpdate() { imgSliderChange('zoom', document.getElementById('imgEditZoom')?.value || 100); }
-function imgEditPanUpdate() {
-  const x = document.getElementById('imgEditX'); if(x) imgSliderChange('x', x.value);
-  const y = document.getElementById('imgEditY'); if(y) imgSliderChange('y', y.value);
+function useGalleryImage(url, idx) {
+  // Convert URL to blob then set as bgImg for current slide
+  const slide = SLIDES[cur];
+  if (!slide) return;
+
+  const thumb = document.getElementById('gthumb'+idx);
+
+  fetch(url, {mode:'cors'})
+    .then(r => r.blob())
+    .then(blob => {
+      const reader = new FileReader();
+      reader.onload = e => {
+        const raw = e.target.result;
+        const needsConvert = raw.startsWith('data:image/avif') || raw.startsWith('data:image/webp');
+        const apply = (dataUrl) => {
+          slide.bgImg = dataUrl;
+          slide.bgTransform = {zoom:100, x:0, y:0};
+          refresh(); buildEditor(slide); buildThumbs();
+          // Mark as used
+          document.querySelectorAll('.img-thumb.used').forEach(t => {
+            t.classList.remove('used');
+            t.querySelector('.use-btn').textContent = 'USE';
+          });
+          if (thumb) { thumb.classList.add('used'); thumb.querySelector('.use-btn').textContent = '✓ ADDED'; }
+        };
+        if (needsConvert) {
+          const img = new Image();
+          img.onload = () => { const c=document.createElement('canvas'); c.width=img.naturalWidth||img.width; c.height=img.naturalHeight||img.height; c.getContext('2d').drawImage(img,0,0); apply(c.toDataURL('image/jpeg',0.92)); };
+          img.onerror = () => apply(raw);
+          img.src = raw;
+        } else { apply(raw); }
+      };
+      reader.readAsDataURL(blob);
+    })
+    .catch(() => {
+      // If CORS fails, try setting via img element conversion
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        const c = document.createElement('canvas');
+        c.width = img.naturalWidth||800; c.height = img.naturalHeight||1000;
+        c.getContext('2d').drawImage(img,0,0);
+        const dataUrl = c.toDataURL('image/jpeg', 0.92);
+        slide.bgImg = dataUrl;
+        slide.bgTransform = {zoom:100,x:0,y:0};
+        refresh(); buildEditor(slide); buildThumbs();
+        if (thumb) { thumb.classList.add('used'); thumb.querySelector('.use-btn').textContent = '✓ ADDED'; }
+      };
+      img.onerror = () => addMsg('ai', '⚠️ Could not load this image due to CORS restrictions. Try right-clicking it and saving, then uploading.');
+      img.src = url + '?t=' + Date.now();
+    });
 }
-function imgEditReset() { imgReset(cur); }
 
 // ═══════════════════════════════════════════════════
 // TRANSPARENT EXPORT TOGGLE
@@ -1621,9 +2088,9 @@ document.getElementById('ov').addEventListener('click',e=>{
   }
 });
 new ResizeObserver(()=>{calcSz();if(SLIDES.length)refresh();}).observe(document.getElementById('ctr'));
-document.getElementById('sf').addEventListener('mousedown', imgEditDragStart);
-document.getElementById('sf').addEventListener('touchstart', imgEditDragStart, {passive:false});
-document.getElementById('sf').addEventListener('wheel', imgEditWheel, {passive:false});
+document.getElementById('sf').addEventListener('mousedown',imgEditDragStart);
+document.getElementById('sf').addEventListener('touchstart',imgEditDragStart,{passive:false});
+document.getElementById('sf').addEventListener('wheel',imgEditWheel,{passive:false});
 applyWidths();
 calcSz();
 </script>
