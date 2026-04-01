@@ -175,7 +175,7 @@ html,body{height:100%;overflow:hidden;font-family:'DM Sans',sans-serif;backgroun
 
 /* input */
 .chat-in{padding:12px;border-top:1px solid var(--g2);flex-shrink:0;display:flex;flex-direction:column;gap:7px;}
-.chat-ta{width:100%;border:1.5px solid var(--g2);border-radius:8px;padding:9px 11px;font-family:'DM Sans';font-size:12px;line-height:1.5;resize:none;color:var(--bk);background:#fff;transition:border-color .15s;}
+.chat-ta{width:100%;border:1.5px solid var(--g2);border-radius:8px;padding:9px 11px;font-family:'DM Sans';font-size:12px;line-height:1.5;resize:none;color:var(--bk);background:#fff;transition:border-color .15s;overflow-wrap:break-word;word-break:break-all;overflow-x:hidden;}
 .chat-ta:focus{outline:none;border-color:var(--or);}
 .chat-send{width:100%;background:var(--or);color:#fff;border:none;border-radius:7px;padding:10px;font-family:'DM Sans';font-size:13px;font-weight:700;cursor:pointer;transition:all .15s;}
 .chat-send:hover:not(:disabled){background:#e55f00;}
@@ -868,7 +868,7 @@ function imgSection(i) {
   const exp=`<div class="esec" style="margin-top:4px">Export Options</div>
     <div class="fld" style="padding:0 0 4px">
       <label style="display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none;">
-        <div onclick="toggleTransparent(${i})" id="togTrans${i}" style="width:36px;height:20px;border-radius:10px;background:${s._transparent?'var(--or)':'rgba(255,255,255,.15)'};position:relative;flex-shrink:0;cursor:pointer;transition:background .2s">
+        <div onclick="toggleTransparent(${i})" id="togTrans${i}" style="width:36px;height:20px;border-radius:10px;background:${s._transparent?'var(--or)':'rgba(0,0,0,.15)'};position:relative;flex-shrink:0;cursor:pointer;transition:background .2s">
           <div style="position:absolute;top:2px;left:${s._transparent?'18px':'2px'};width:16px;height:16px;border-radius:8px;background:#fff;transition:left .2s"></div>
         </div>
         <span style="font-size:11px;font-weight:600;color:${s._transparent?'var(--or)':'var(--g5)'}">Transparent export</span>
@@ -969,8 +969,10 @@ function normSlide(s, i) {
     if (slide.eyebrow) slide.eyebrow = slide.eyebrow.replace(/\s*\d+\s*\/\s*\d+/g,'').trim();
     slide._original = JSON.stringify(slide); return slide;
   }
-  const slide = {...base, ...s, imgPrompt: s.imgPrompt||''};
+  // Safety net for any unrecognised type — render as basic value slide
+  const slide = {...base, ...s, imgPrompt: s.imgPrompt||'', type: s.type||'content'};
   if (slide.eyebrow) slide.eyebrow = slide.eyebrow.replace(/\s*\d+\s*\/\s*\d+/g,'').trim();
+  if (!slide.headline && slide.title) slide.headline = slide.title;
   slide._original = JSON.stringify(slide); return slide; // passthrough
 }
 
@@ -1767,6 +1769,15 @@ function mkSlide(s,w,h){
   } else
 
 
+  // Fallback for any slide type not yet rendered
+  if (!inner && s.headline) {
+    const eyeS=sz('eyebrow',s.fs||1,w)*.65, h1S=sz('h1',s.fs||1,w)*.82, bS=sz('body',s.fs||1,w)*.8;
+    inner=`<div style="position:absolute;inset:0;display:flex;flex-direction:column;justify-content:center;padding:${PAD}px">
+      ${s.eyebrow?`<div style="font-size:${eyeS}px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:#FF6B00;margin-bottom:${Math.round(h*.02)}px">${s.eyebrow}</div>`:''}
+      <div style="font-size:${h1S}px;font-weight:900;line-height:.9;color:#fff;font-family:'Bebas Neue',sans-serif;margin-bottom:${Math.round(h*.03)}px">${hl(s.headline||'',OR)}</div>
+      ${s.body?`<div style="font-size:${bS}px;color:rgba(255,255,255,.6);line-height:1.5">${s.body}</div>`:''}
+    </div>`;
+  }
   return `<div style="width:${w}px;height:${h}px;position:relative;overflow:hidden;font-family:'DM Sans',sans-serif;background:#111">${bg}${dots}${inner}${pb}${wm}${ct}</div>`;
 }
 
