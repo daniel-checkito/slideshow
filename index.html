@@ -943,8 +943,8 @@ function clearImg(idx) {
 
 function normSlide(s, i) {
   const base = { id:i, fs:1.0, accent: i%2===0?'orange':'yellow', _offsets:{} };
-  if (s.type==='hero')    return {...base, imgPrompt:s.imgPrompt||'', type:'hero',    tag:s.eyebrow||s.tag||'🔥 Make Money 3D Printing', headline:s.headline||'', subline:s.subheadline||s.subline||''};
-  if (s.type==='problem') return {...base, imgPrompt:s.imgPrompt||'', type:'content', accent:'orange', eyebrow:(s.eyebrow||'THE PROBLEM').replace(/\s*\d+\s*\/\s*\d+/g,'').trim(), headline:s.headline||'', body:s.body||'', stat:s.stat||'', statLabel:s.statLabel||''};
+  if (s.type==='hero')    return {...base, imgPrompt:s.imgPrompt||'', type:'hero',    tag:s.eyebrow||s.tag||'💰 PRODUCT DEEP DIVE', headline:s.headline||'', subline:s.subheadline||s.subline||''};
+  if (s.type==='problem') return {...base, imgPrompt:s.imgPrompt||'', type:'content', accent:'orange', eyebrow:(s.eyebrow||'KEY INSIGHT').replace(/\s*\d+\s*\/\s*\d+/g,'').trim(), headline:s.headline||'', body:s.body||'', stat:s.stat||'', statLabel:s.statLabel||''};
   if (s.type==='value')   return {...base, imgPrompt:s.imgPrompt||'', type:'content',
     eyebrow:(s.eyebrow||'KEY INSIGHT').replace(/\s*\d+\s*\/\s*\d+/g,'').trim(),
     headline:s.headline||'', body:s.body||'', tip:s.tipBox||s.tip||'', stat:s.stat||'', statLabel:s.statLabel||''};
@@ -958,8 +958,18 @@ function normSlide(s, i) {
   if (s.type==='steps') return {...base, imgPrompt:s.imgPrompt||'', type:'steps',
     eyebrow:s.eyebrow||'HOW TO START', headline:s.headline||'',
     steps:s.steps||[]};
+  // New slide types — pass through all fields cleanly
+  const passthruTypes = ['etsy_listing','buyer_demo','print_advantage','shipping_edge',
+    'keywords','generic_vs_personal','market_score','improvements','profit_timeline',
+    'seasonal','bestseller_formula','ledger',
+    'ip_legal','competition_saturation','factory_vs_3d','print_time_warning',
+    'safety_warning','electronics_safety','eu_compliance_slide','missing_certs','skip_verdict'];
+  if (passthruTypes.includes(s.type)) {
+    const slide = {...base, ...s, imgPrompt: s.imgPrompt||''};
+    if (slide.eyebrow) slide.eyebrow = slide.eyebrow.replace(/\s*\d+\s*\/\s*\d+/g,'').trim();
+    slide._original = JSON.stringify(slide); return slide;
+  }
   const slide = {...base, ...s, imgPrompt: s.imgPrompt||''};
-  // Strip product numbering from any eyebrow (e.g. "PRODUCT 01 / 03" → "PRODUCT")
   if (slide.eyebrow) slide.eyebrow = slide.eyebrow.replace(/\s*\d+\s*\/\s*\d+/g,'').trim();
   slide._original = JSON.stringify(slide); return slide; // passthrough
 }
@@ -1588,6 +1598,171 @@ function mkSlide(s,w,h){
             </div>`;
           }).join('')}
         </div>
+      </div>`;
+  } else
+
+
+  // ── IP / LEGAL ──────────────────────────────────────────────────────────────
+  if(s.type==='ip_legal'){
+    const eyeS=sz('eyebrow',s.fs||1,w)*.65, h1S=sz('h1',s.fs||1,w)*.82, bS=sz('body',s.fs||1,w)*.8;
+    const imgH=Math.round(h*.3);
+    inner=`
+      ${s.bgImg?`<div style="position:absolute;top:0;left:0;right:0;height:${imgH}px;background:url('${s.bgImg}') calc(50% + ${(s.bgTransform&&s.bgTransform.x)||0}%) calc(50% + ${(s.bgTransform&&s.bgTransform.y)||0}%) / ${(s.bgTransform&&s.bgTransform.zoom)||100}% no-repeat;z-index:0"></div>`:`<div style="position:absolute;top:0;left:0;right:0;height:${imgH}px;background:rgba(226,75,74,.07);border-bottom:1.5px dashed rgba(226,75,74,.3);display:flex;align-items:center;justify-content:center;font-size:${Math.round(w*.025)}px;color:rgba(226,75,74,.4);font-weight:800;text-transform:uppercase;z-index:0">BG IMAGE</div>`}
+      <div style="position:absolute;top:${Math.round(imgH*.55)}px;left:0;right:0;height:${Math.round(imgH*.55)}px;background:linear-gradient(to bottom,transparent,#111);z-index:1"></div>
+      <div style="position:absolute;top:${imgH+Math.round(h*.01)}px;left:${PAD}px;right:${PAD}px;bottom:${PAD}px;z-index:2">
+        <div style="font-size:${eyeS}px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:#e24b4a;margin-bottom:${Math.round(h*.015)}px">${s.eyebrow||'LEGAL WARNING'}</div>
+        <div style="font-size:${h1S}px;font-weight:900;line-height:.9;color:#fff;font-family:'Bebas Neue',sans-serif;margin-bottom:${Math.round(h*.03)}px">${hl(s.headline||'YOU COULD GET *SUED* FOR THIS',OR)}</div>
+        <div style="display:flex;flex-direction:column;gap:${Math.round(h*.02)}px">
+          ${(s.risks||[]).map(r=>`<div style="padding:${Math.round(h*.022)}px ${Math.round(w*.04)}px;background:rgba(226,75,74,.08);border-radius:${Math.round(w*.02)}px;border-left:${Math.round(w*.006)}px solid #e24b4a"><div style="font-size:${eyeS*.9}px;font-weight:900;color:#e24b4a;margin-bottom:${Math.round(h*.006)}px">${r.title}</div><div style="font-size:${bS*.9}px;line-height:1.5;color:rgba(255,255,255,.6)">${r.body}</div></div>`).join('')}
+        </div>
+      </div>`;
+  } else
+
+  // ── COMPETITION SATURATION ──────────────────────────────────────────────────
+  if(s.type==='competition_saturation'){
+    const eyeS=sz('eyebrow',s.fs||1,w)*.65, h1S=sz('h1',s.fs||1,w)*.82, bS=sz('body',s.fs||1,w)*.8;
+    const statS=sz('stat',s.fs||1,w)*.9, imgW=Math.round(w*.36);
+    inner=`
+      ${s.bgImg?`<div style="position:absolute;top:0;right:0;bottom:0;width:${imgW}px;background:url('${s.bgImg}') calc(50% + ${(s.bgTransform&&s.bgTransform.x)||0}%) calc(50% + ${(s.bgTransform&&s.bgTransform.y)||0}%) / ${(s.bgTransform&&s.bgTransform.zoom)||100}% no-repeat;z-index:0"></div>`:`<div style="position:absolute;top:0;right:0;bottom:0;width:${imgW}px;background:rgba(226,75,74,.06);border-left:1.5px dashed rgba(226,75,74,.25);z-index:0"></div>`}
+      <div style="position:absolute;top:0;right:${imgW}px;bottom:0;left:0;background:linear-gradient(to right,#111 72%,transparent);z-index:1"></div>
+      <div style="position:absolute;top:${PAD}px;left:${PAD}px;right:${imgW+Math.round(w*.03)}px;bottom:${PAD}px;z-index:2;display:flex;flex-direction:column;justify-content:space-between">
+        <div>
+          <div style="font-size:${eyeS}px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:#e24b4a;margin-bottom:${Math.round(h*.04)}px">${s.eyebrow||'MARKET WARNING'}</div>
+          <div style="font-size:${h1S}px;font-weight:900;line-height:.9;color:#fff;font-family:'Bebas Neue',sans-serif">${hl(s.headline||'TOO MANY *SELLERS*',OR)}</div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:${Math.round(h*.025)}px">
+          <div style="background:rgba(255,255,255,.05);border-radius:${Math.round(w*.02)}px;padding:${Math.round(h*.025)}px ${Math.round(w*.05)}px"><div style="font-size:${eyeS*.9}px;color:rgba(255,255,255,.45)">Active listings</div><div style="font-size:${statS}px;font-weight:900;color:#e24b4a;font-family:'Bebas Neue',sans-serif">${s.listingCount||'—'}</div></div>
+          <div style="background:rgba(255,255,255,.05);border-radius:${Math.round(w*.02)}px;padding:${Math.round(h*.025)}px ${Math.round(w*.05)}px"><div style="font-size:${eyeS*.9}px;color:rgba(255,255,255,.45)">Search volume</div><div style="font-size:${statS}px;font-weight:900;color:#fff;font-family:'Bebas Neue',sans-serif">${s.searchVolume||'—'}</div></div>
+          <div style="background:rgba(226,75,74,.12);border:1px solid rgba(226,75,74,.3);border-radius:${Math.round(w*.02)}px;padding:${Math.round(h*.022)}px ${Math.round(w*.04)}px"><div style="font-size:${bS*.9}px;font-weight:900;color:#e24b4a;margin-bottom:${Math.round(h*.008)}px">${s.ratioLabel||''}</div><div style="font-size:${bS*.85}px;line-height:1.5;color:rgba(255,255,255,.6)">${s.ratioWarning||''}</div></div>
+          ${s.suggestion?`<div style="padding:${Math.round(h*.018)}px ${Math.round(w*.04)}px;background:rgba(255,107,0,.1);border-radius:${Math.round(w*.02)}px;border-left:${Math.round(w*.006)}px solid ${OR}"><div style="font-size:${bS*.85}px;color:#fff;line-height:1.5"><span style="color:${OR};font-weight:900">Instead: </span>${s.suggestion}</div></div>`:''}
+        </div>
+      </div>`;
+  } else
+
+  // ── FACTORY VS 3D ───────────────────────────────────────────────────────────
+  if(s.type==='factory_vs_3d'){
+    const eyeS=sz('eyebrow',s.fs||1,w)*.65, h1S=sz('h1',s.fs||1,w)*.82, bS=sz('body',s.fs||1,w)*.8;
+    const statS=sz('stat',s.fs||1,w)*.85, imgH=Math.round(h*.3);
+    inner=`
+      ${s.bgImg?`<div style="position:absolute;top:0;left:0;right:0;height:${imgH}px;background:url('${s.bgImg}') calc(50% + ${(s.bgTransform&&s.bgTransform.x)||0}%) calc(50% + ${(s.bgTransform&&s.bgTransform.y)||0}%) / ${(s.bgTransform&&s.bgTransform.zoom)||100}% no-repeat;z-index:0"></div>`:`<div style="position:absolute;top:0;left:0;right:0;height:${imgH}px;background:rgba(255,200,50,.05);border-bottom:1.5px dashed rgba(255,200,50,.25);display:flex;align-items:center;justify-content:center;font-size:${Math.round(w*.025)}px;color:rgba(255,200,50,.4);font-weight:800;text-transform:uppercase;z-index:0">BG IMAGE</div>`}
+      <div style="position:absolute;top:${Math.round(imgH*.55)}px;left:0;right:0;height:${Math.round(imgH*.55)}px;background:linear-gradient(to bottom,transparent,#111);z-index:1"></div>
+      <div style="position:absolute;top:${imgH+Math.round(h*.01)}px;left:${PAD}px;right:${PAD}px;bottom:${PAD}px;z-index:2">
+        <div style="font-size:${eyeS}px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:rgba(255,200,50,1);margin-bottom:${Math.round(h*.012)}px">${s.eyebrow||'HONEST TAKE'}</div>
+        <div style="font-size:${h1S}px;font-weight:900;line-height:.9;color:#fff;font-family:'Bebas Neue',sans-serif;margin-bottom:${Math.round(h*.025)}px">${hl(s.headline||'FACTORIES DO THIS *BETTER*',OR)}</div>
+        <div style="display:flex;gap:${Math.round(w*.03)}px;margin-bottom:${Math.round(h*.025)}px">
+          <div style="flex:1;background:rgba(255,255,255,.05);border-radius:${Math.round(w*.02)}px;padding:${Math.round(h*.025)}px ${Math.round(w*.04)}px"><div style="font-size:${eyeS*.85}px;color:rgba(255,255,255,.4)">Factory cost</div><div style="font-size:${statS}px;font-weight:900;color:#4ecb7a;font-family:'Bebas Neue',sans-serif">${s.factoryCost||'—'}</div></div>
+          <div style="flex:1;background:rgba(255,255,255,.05);border-radius:${Math.round(w*.02)}px;padding:${Math.round(h*.025)}px ${Math.round(w*.04)}px"><div style="font-size:${eyeS*.85}px;color:rgba(255,255,255,.4)">3D print cost</div><div style="font-size:${statS}px;font-weight:900;color:#e24b4a;font-family:'Bebas Neue',sans-serif">${s.printCost||'—'}</div></div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:${Math.round(h*.016)}px">
+          ${(s.xmarks||[]).map(x=>`<div style="display:flex;gap:${Math.round(w*.03)}px;align-items:center;padding:${Math.round(h*.018)}px ${Math.round(w*.035)}px;background:rgba(255,255,255,.04);border-radius:${Math.round(w*.018)}px"><span style="color:#e24b4a;font-size:${Math.round(bS*1.1)}px;font-weight:900;flex-shrink:0">✕</span><div style="font-size:${bS*.88}px;line-height:1.4;color:rgba(255,255,255,.65)">${x.text||x}</div></div>`).join('')}
+        </div>
+      </div>`;
+  } else
+
+  // ── PRINT TIME WARNING ──────────────────────────────────────────────────────
+  if(s.type==='print_time_warning'){
+    const eyeS=sz('eyebrow',s.fs||1,w)*.65, h1S=sz('h1',s.fs||1,w)*.82, bS=sz('body',s.fs||1,w)*.8;
+    const labelS=sz('eyebrow',s.fs||1,w)*.55, imgH=Math.round(h*.32);
+    inner=`
+      ${s.bgImg?`<div style="position:absolute;top:0;left:0;right:0;height:${imgH}px;background:url('${s.bgImg}') calc(50% + ${(s.bgTransform&&s.bgTransform.x)||0}%) calc(50% + ${(s.bgTransform&&s.bgTransform.y)||0}%) / ${(s.bgTransform&&s.bgTransform.zoom)||100}% no-repeat;z-index:0"></div>`:`<div style="position:absolute;top:0;left:0;right:0;height:${imgH}px;background:rgba(255,200,50,.05);border-bottom:1.5px dashed rgba(255,200,50,.25);display:flex;align-items:center;justify-content:center;font-size:${Math.round(w*.025)}px;color:rgba(255,200,50,.4);font-weight:800;text-transform:uppercase;z-index:0">BG IMAGE</div>`}
+      <div style="position:absolute;top:${Math.round(imgH*.55)}px;left:0;right:0;height:${Math.round(imgH*.5)}px;background:linear-gradient(to bottom,transparent,#111);z-index:1"></div>
+      <div style="position:absolute;top:${imgH+Math.round(h*.01)}px;left:${PAD}px;right:${PAD}px;bottom:${PAD}px;z-index:2">
+        <div style="font-size:${eyeS}px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:rgba(255,200,50,1);margin-bottom:${Math.round(h*.012)}px">${s.eyebrow||'TIME WARNING'}</div>
+        <div style="font-size:${h1S}px;font-weight:900;line-height:.9;color:#fff;font-family:'Bebas Neue',sans-serif;margin-bottom:${Math.round(h*.025)}px">${hl(s.headline||'14H PRINT. *€8* PROFIT.',OR)}</div>
+        <div style="background:rgba(0,0,0,.5);border-radius:${Math.round(w*.025)}px;overflow:hidden;margin-bottom:${Math.round(h*.025)}px">
+          ${(s.rows||[]).map((row,i)=>{const isT=!!row.isTotal;return`<div style="display:flex;justify-content:space-between;align-items:center;padding:${Math.round(h*.022)}px ${Math.round(w*.05)}px;${i<(s.rows.length-1)?'border-bottom:1px solid rgba(255,255,255,.07)':''}; background:${isT?'rgba(226,75,74,.18)':'transparent'}"><span style="font-size:${isT?bS:labelS}px;font-weight:${isT?700:400};color:${isT?'#e24b4a':'rgba(255,255,255,.5)'}">${row.label}</span><span style="font-size:${isT?Math.round(h1S*.7):bS}px;font-weight:900;color:${isT?'#e24b4a':'#fff'};font-family:'Bebas Neue',sans-serif">${row.value}</span></div>`;}).join('')}
+        </div>
+        ${s.warning?`<div style="padding:${Math.round(h*.018)}px ${Math.round(w*.04)}px;background:rgba(255,200,50,.1);border-radius:${Math.round(w*.02)}px;border-left:${Math.round(w*.006)}px solid rgba(255,200,50,1)"><div style="font-size:${bS*.88}px;line-height:1.5;color:rgba(255,200,50,1);font-weight:700">${s.warning}</div></div>`:''}
+      </div>`;
+  } else
+
+  // ── SAFETY WARNING ──────────────────────────────────────────────────────────
+  if(s.type==='safety_warning'){
+    const eyeS=sz('eyebrow',s.fs||1,w)*.65, h1S=sz('h1',s.fs||1,w)*.82, bS=sz('body',s.fs||1,w)*.8;
+    const imgH=Math.round(h*.3);
+    inner=`
+      ${s.bgImg?`<div style="position:absolute;top:0;left:0;right:0;height:${imgH}px;background:url('${s.bgImg}') calc(50% + ${(s.bgTransform&&s.bgTransform.x)||0}%) calc(50% + ${(s.bgTransform&&s.bgTransform.y)||0}%) / ${(s.bgTransform&&s.bgTransform.zoom)||100}% no-repeat;z-index:0"></div>`:`<div style="position:absolute;top:0;left:0;right:0;height:${imgH}px;background:rgba(226,75,74,.07);border-bottom:1.5px dashed rgba(226,75,74,.3);display:flex;align-items:center;justify-content:center;font-size:${Math.round(w*.025)}px;color:rgba(226,75,74,.4);font-weight:800;text-transform:uppercase;z-index:0">BG IMAGE</div>`}
+      <div style="position:absolute;top:${Math.round(imgH*.55)}px;left:0;right:0;height:${Math.round(imgH*.5)}px;background:linear-gradient(to bottom,transparent,#111);z-index:1"></div>
+      <div style="position:absolute;top:${imgH+Math.round(h*.01)}px;left:${PAD}px;right:${PAD}px;bottom:${PAD}px;z-index:2">
+        <div style="font-size:${eyeS}px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:#e24b4a;margin-bottom:${Math.round(h*.012)}px">${s.eyebrow||'SAFETY WARNING'}</div>
+        <div style="font-size:${h1S}px;font-weight:900;line-height:.9;color:#fff;font-family:'Bebas Neue',sans-serif;margin-bottom:${Math.round(h*.03)}px">${hl(s.headline||'THIS PRODUCT *IS A LIABILITY*',OR)}</div>
+        <div style="display:flex;flex-direction:column;gap:${Math.round(h*.02)}px">
+          ${(s.risks||[]).map(r=>`<div style="padding:${Math.round(h*.022)}px ${Math.round(w*.04)}px;background:rgba(226,75,74,.08);border-radius:${Math.round(w*.02)}px;border-left:${Math.round(w*.006)}px solid #e24b4a"><div style="font-size:${eyeS*.9}px;font-weight:900;color:#e24b4a;margin-bottom:${Math.round(h*.006)}px">${r.title}</div><div style="font-size:${bS*.88}px;line-height:1.5;color:rgba(255,255,255,.6)">${r.body}</div></div>`).join('')}
+        </div>
+      </div>`;
+  } else
+
+  // ── ELECTRONICS SAFETY ──────────────────────────────────────────────────────
+  if(s.type==='electronics_safety'){
+    const eyeS=sz('eyebrow',s.fs||1,w)*.65, h1S=sz('h1',s.fs||1,w)*.82, bS=sz('body',s.fs||1,w)*.8;
+    const badgeS=sz('stat',s.fs||1,w)*.55, imgH=Math.round(h*.28);
+    inner=`
+      ${s.bgImg?`<div style="position:absolute;top:0;left:0;right:0;height:${imgH}px;background:url('${s.bgImg}') calc(50% + ${(s.bgTransform&&s.bgTransform.x)||0}%) calc(50% + ${(s.bgTransform&&s.bgTransform.y)||0}%) / ${(s.bgTransform&&s.bgTransform.zoom)||100}% no-repeat;z-index:0"></div>`:`<div style="position:absolute;top:0;left:0;right:0;height:${imgH}px;background:rgba(226,75,74,.07);z-index:0"></div>`}
+      <div style="position:absolute;top:${Math.round(imgH*.55)}px;left:0;right:0;height:${Math.round(imgH*.5)}px;background:linear-gradient(to bottom,transparent,#111);z-index:1"></div>
+      <div style="position:absolute;top:${imgH+Math.round(h*.01)}px;left:${PAD}px;right:${PAD}px;bottom:${PAD}px;z-index:2">
+        <div style="font-size:${eyeS}px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:#e24b4a;margin-bottom:${Math.round(h*.012)}px">${s.eyebrow||'ELECTRONICS WARNING'}</div>
+        <div style="font-size:${h1S}px;font-weight:900;line-height:.9;color:#fff;font-family:'Bebas Neue',sans-serif;margin-bottom:${Math.round(h*.025)}px">${hl(s.headline||'ELECTRONICS NEED *TESTING*',OR)}</div>
+        <div style="display:flex;gap:${Math.round(w*.025)}px;margin-bottom:${Math.round(h*.025)}px">
+          ${(s.badges||[]).map(b=>`<div style="flex:1;background:rgba(226,75,74,.12);border:1px solid rgba(226,75,74,.3);border-radius:${Math.round(w*.02)}px;padding:${Math.round(h*.022)}px ${Math.round(w*.03)}px;text-align:center"><div style="font-size:${badgeS}px;font-weight:900;color:#e24b4a;font-family:'Bebas Neue',sans-serif">${b.label}</div><div style="font-size:${eyeS*.75}px;color:rgba(255,255,255,.4);margin-top:${Math.round(h*.005)}px">${b.subtitle||''}</div></div>`).join('')}
+        </div>
+        <div style="display:flex;flex-direction:column;gap:${Math.round(h*.016)}px">
+          ${(s.risks||[]).map(r=>`<div style="padding:${Math.round(h*.018)}px ${Math.round(w*.04)}px;background:rgba(255,255,255,.04);border-radius:${Math.round(w*.018)}px"><div style="font-size:${bS*.88}px;line-height:1.5;color:#fff"><span style="font-weight:900;color:#e24b4a">${r.title}: </span>${r.body}</div></div>`).join('')}
+        </div>
+      </div>`;
+  } else
+
+  // ── EU COMPLIANCE ───────────────────────────────────────────────────────────
+  if(s.type==='eu_compliance_slide'){
+    const eyeS=sz('eyebrow',s.fs||1,w)*.65, h1S=sz('h1',s.fs||1,w)*.82, bS=sz('body',s.fs||1,w)*.8;
+    const labelS=sz('eyebrow',s.fs||1,w)*.55, imgH=Math.round(h*.28);
+    inner=`
+      ${s.bgImg?`<div style="position:absolute;top:0;left:0;right:0;height:${imgH}px;background:url('${s.bgImg}') calc(50% + ${(s.bgTransform&&s.bgTransform.x)||0}%) calc(50% + ${(s.bgTransform&&s.bgTransform.y)||0}%) / ${(s.bgTransform&&s.bgTransform.zoom)||100}% no-repeat;z-index:0"></div>`:`<div style="position:absolute;top:0;left:0;right:0;height:${imgH}px;background:rgba(255,200,50,.05);z-index:0"></div>`}
+      <div style="position:absolute;top:${Math.round(imgH*.55)}px;left:0;right:0;height:${Math.round(imgH*.5)}px;background:linear-gradient(to bottom,transparent,#111);z-index:1"></div>
+      <div style="position:absolute;top:${imgH+Math.round(h*.01)}px;left:${PAD}px;right:${PAD}px;bottom:${PAD}px;z-index:2">
+        <div style="font-size:${eyeS}px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:rgba(255,200,50,1);margin-bottom:${Math.round(h*.012)}px">${s.eyebrow||'EU SELLERS WATCH OUT'}</div>
+        <div style="font-size:${h1S}px;font-weight:900;line-height:.9;color:#fff;font-family:'Bebas Neue',sans-serif;margin-bottom:${Math.round(h*.025)}px">${hl(s.headline||'SELLING IN EU *IS COMPLICATED*',OR)}</div>
+        <div style="display:flex;flex-direction:column;gap:${Math.round(h*.016)}px">
+          ${(s.rules||[]).map(r=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:${Math.round(h*.018)}px ${Math.round(w*.04)}px;background:rgba(255,255,255,.04);border-radius:${Math.round(w*.018)}px"><div style="font-size:${bS*.88}px;color:#fff">${r.label}</div><div style="font-size:${labelS}px;font-weight:700;background:${r.badgeColor==='red'?'rgba(226,75,74,.15)':r.badgeColor==='green'?'rgba(78,203,122,.15)':'rgba(255,200,50,.15)'};border-radius:${Math.round(w*.015)}px;padding:${Math.round(h*.006)}px ${Math.round(w*.025)}px;color:${r.badgeColor==='red'?'#e24b4a':r.badgeColor==='green'?'#4ecb7a':'rgba(255,200,50,1)'};white-space:nowrap">${r.badge}</div></div>`).join('')}
+        </div>
+      </div>`;
+  } else
+
+  // ── MISSING CERTS ───────────────────────────────────────────────────────────
+  if(s.type==='missing_certs'){
+    const eyeS=sz('eyebrow',s.fs||1,w)*.65, h1S=sz('h1',s.fs||1,w)*.82, bS=sz('body',s.fs||1,w)*.8;
+    const imgW=Math.round(w*.36);
+    inner=`
+      ${s.bgImg?`<div style="position:absolute;top:0;right:0;bottom:0;width:${imgW}px;background:url('${s.bgImg}') calc(50% + ${(s.bgTransform&&s.bgTransform.x)||0}%) calc(50% + ${(s.bgTransform&&s.bgTransform.y)||0}%) / ${(s.bgTransform&&s.bgTransform.zoom)||100}% no-repeat;z-index:0"></div>`:`<div style="position:absolute;top:0;right:0;bottom:0;width:${imgW}px;background:rgba(226,75,74,.06);z-index:0"></div>`}
+      <div style="position:absolute;top:0;right:${imgW}px;bottom:0;left:0;background:linear-gradient(to right,#111 72%,transparent);z-index:1"></div>
+      <div style="position:absolute;top:${PAD}px;left:${PAD}px;right:${imgW+Math.round(w*.03)}px;bottom:${PAD}px;z-index:2;display:flex;flex-direction:column;justify-content:space-between">
+        <div>
+          <div style="font-size:${eyeS}px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:#e24b4a;margin-bottom:${Math.round(h*.04)}px">${s.eyebrow||'COMPLIANCE GAP'}</div>
+          <div style="font-size:${h1S}px;font-weight:900;line-height:.9;color:#fff;font-family:'Bebas Neue',sans-serif">${hl(s.headline||'MISSING *CERTS*',OR)}</div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:${Math.round(h*.022)}px">
+          ${(s.certs||[]).map(c=>{const clr=c.severity==='high'?'#e24b4a':'rgba(255,200,50,1)';const bg=c.severity==='high'?'rgba(226,75,74,.08)':'rgba(255,200,50,.08)';const br=c.severity==='high'?'rgba(226,75,74,.3)':'rgba(255,200,50,.2)';return`<div style="padding:${Math.round(h*.022)}px ${Math.round(w*.05)}px;background:${bg};border-radius:${Math.round(w*.02)}px;border:1px solid ${br}"><div style="font-size:${eyeS*.9}px;font-weight:900;color:${clr};margin-bottom:${Math.round(h*.006)}px">${c.title}</div><div style="font-size:${bS*.85}px;line-height:1.5;color:rgba(255,255,255,.6)">${c.body}</div></div>`;}).join('')}
+        </div>
+      </div>`;
+  } else
+
+  // ── SKIP VERDICT ────────────────────────────────────────────────────────────
+  if(s.type==='skip_verdict'){
+    const eyeS=sz('eyebrow',s.fs||1,w)*.65, h1S=sz('h1',s.fs||1,w)*.82, bS=sz('body',s.fs||1,w)*.8;
+    const statS=sz('stat',s.fs||1,w)*.9, imgH=Math.round(h*.3);
+    inner=`
+      ${s.bgImg?`<div style="position:absolute;top:0;left:0;right:0;height:${imgH}px;background:url('${s.bgImg}') calc(50% + ${(s.bgTransform&&s.bgTransform.x)||0}%) calc(50% + ${(s.bgTransform&&s.bgTransform.y)||0}%) / ${(s.bgTransform&&s.bgTransform.zoom)||100}% no-repeat;z-index:0"></div>`:`<div style="position:absolute;top:0;left:0;right:0;height:${imgH}px;background:rgba(226,75,74,.07);z-index:0"></div>`}
+      <div style="position:absolute;top:${Math.round(imgH*.55)}px;left:0;right:0;height:${Math.round(imgH*.5)}px;background:linear-gradient(to bottom,transparent,#111);z-index:1"></div>
+      <div style="position:absolute;top:${imgH+Math.round(h*.01)}px;left:${PAD}px;right:${PAD}px;bottom:${PAD}px;z-index:2">
+        <div style="font-size:${eyeS}px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:#e24b4a;margin-bottom:${Math.round(h*.012)}px">${s.eyebrow||'RISK VERDICT'}</div>
+        <div style="font-size:${h1S}px;font-weight:900;line-height:.9;color:#fff;font-family:'Bebas Neue',sans-serif;margin-bottom:${Math.round(h*.025)}px">${hl(s.headline||"SKIP THIS — SEE WHY",OR)}</div>
+        <div style="display:flex;gap:${Math.round(w*.025)}px;margin-bottom:${Math.round(h*.025)}px">
+          <div style="flex:1;background:rgba(226,75,74,.12);border-radius:${Math.round(w*.02)}px;padding:${Math.round(h*.025)}px ${Math.round(w*.04)}px;text-align:center"><div style="font-size:${eyeS*.85}px;color:rgba(255,255,255,.4);margin-bottom:${Math.round(h*.006)}px">Risk score</div><div style="font-size:${statS}px;font-weight:900;color:#e24b4a;font-family:'Bebas Neue',sans-serif">${s.riskScore||'—'}</div></div>
+          <div style="flex:1;background:rgba(255,255,255,.05);border-radius:${Math.round(w*.02)}px;padding:${Math.round(h*.025)}px ${Math.round(w*.04)}px;text-align:center"><div style="font-size:${eyeS*.85}px;color:rgba(255,255,255,.4);margin-bottom:${Math.round(h*.006)}px">Profit score</div><div style="font-size:${statS}px;font-weight:900;color:rgba(255,255,255,.6);font-family:'Bebas Neue',sans-serif">${s.profitScore||'—'}</div></div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:${Math.round(h*.016)}px;margin-bottom:${Math.round(h*.02)}px">
+          ${(s.dealbreakers||[]).map(d=>`<div style="display:flex;gap:${Math.round(w*.03)}px;align-items:flex-start;padding:${Math.round(h*.018)}px ${Math.round(w*.035)}px;background:rgba(226,75,74,.07);border-radius:${Math.round(w*.018)}px"><span style="color:#e24b4a;font-size:${Math.round(bS*1.1)}px;font-weight:900;flex-shrink:0">✕</span><div style="font-size:${bS*.88}px;line-height:1.4;color:rgba(255,255,255,.65)">${d.text||d}</div></div>`).join('')}
+        </div>
+        ${s.alternative?`<div style="padding:${Math.round(h*.018)}px ${Math.round(w*.04)}px;background:rgba(255,107,0,.1);border-radius:${Math.round(w*.02)}px;border-left:${Math.round(w*.006)}px solid ${OR}"><div style="font-size:${bS*.88}px;line-height:1.5;color:${OR};font-weight:700">Instead → ${s.alternative}</div></div>`:''}
       </div>`;
   } else
 
