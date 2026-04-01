@@ -481,8 +481,8 @@ function SSH() { return Math.round(SSZ * RATIO); }
 // ═══════════════════════════════════════════════════
 // FONT SIZES
 // ═══════════════════════════════════════════════════
-const BASE = { h1:130, h2:96, eyebrow:28, sub:40, body:36, box:30, stat:48, statSub:24, tag:26, listitem:32, btnp:28, btns:24, wm:20, ct:18 };
-function sz(role, fs, w) { return Math.round((BASE[role]||32) * ((w||SSZ)/EW) * (fs||1)); }
+const BASE = { h1:130, h2:96, eyebrow:32, sub:44, body:40, box:34, stat:52, statSub:28, tag:30, listitem:36, btnp:32, btns:28, wm:22, ct:20 };
+function sz(role, fs, w) { return Math.max(11, Math.round((BASE[role]||32) * ((w||SSZ)/EW) * (fs||1))); }
 
 // ═══════════════════════════════════════════════════
 // SIZING
@@ -963,7 +963,8 @@ function normSlide(s, i) {
     'keywords','generic_vs_personal','market_score','improvements','profit_timeline',
     'seasonal','bestseller_formula','ledger',
     'ip_legal','competition_saturation','factory_vs_3d','print_time_warning',
-    'safety_warning','electronics_safety','eu_compliance_slide','missing_certs','skip_verdict'];
+    'safety_warning','electronics_safety','eu_compliance_slide','missing_certs','skip_verdict',
+    'pain_point','trending'];
   if (passthruTypes.includes(s.type)) {
     const slide = {...base, ...s, imgPrompt: s.imgPrompt||''};
     if (slide.eyebrow) slide.eyebrow = slide.eyebrow.replace(/\s*\d+\s*\/\s*\d+/g,'').trim();
@@ -1765,6 +1766,41 @@ function mkSlide(s,w,h){
           ${(s.dealbreakers||[]).map(d=>`<div style="display:flex;gap:${Math.round(w*.03)}px;align-items:flex-start;padding:${Math.round(h*.018)}px ${Math.round(w*.035)}px;background:rgba(226,75,74,.07);border-radius:${Math.round(w*.018)}px"><span style="color:#e24b4a;font-size:${Math.round(bS*1.1)}px;font-weight:900;flex-shrink:0">✕</span><div style="font-size:${bS*.88}px;line-height:1.4;color:rgba(255,255,255,.65)">${d.text||d}</div></div>`).join('')}
         </div>
         ${s.alternative?`<div style="padding:${Math.round(h*.018)}px ${Math.round(w*.04)}px;background:rgba(255,107,0,.1);border-radius:${Math.round(w*.02)}px;border-left:${Math.round(w*.006)}px solid ${OR}"><div style="font-size:${bS*.88}px;line-height:1.5;color:${OR};font-weight:700">Instead → ${s.alternative}</div></div>`:''}
+      </div>`;
+  } else
+
+
+  // ── PAIN POINT / WHY THEY BUY ──────────────────────────────────────────────
+  if(s.type==='pain_point'){
+    const eyeS=sz('eyebrow',s.fs||1,w)*.65, h1S=sz('h1',s.fs||1,w)*.85, bS=sz('body',s.fs||1,w);
+    const imgH=Math.round(h*.38);
+    inner=`
+      ${s.bgImg?`<div style="position:absolute;top:0;left:0;right:0;height:${imgH}px;background:url('${s.bgImg}') calc(50% + ${(s.bgTransform&&s.bgTransform.x)||0}%) calc(50% + ${(s.bgTransform&&s.bgTransform.y)||0}%) / ${(s.bgTransform&&s.bgTransform.zoom)||100}% no-repeat;z-index:0"></div>`:`<div style="position:absolute;top:0;left:0;right:0;height:${imgH}px;background:rgba(255,107,0,.07);border-bottom:1.5px dashed rgba(255,107,0,.3);display:flex;align-items:center;justify-content:center;font-size:${Math.round(w*.025)}px;color:rgba(255,107,0,.4);font-weight:800;text-transform:uppercase;z-index:0">BG IMAGE</div>`}
+      <div style="position:absolute;top:${Math.round(imgH*.55)}px;left:0;right:0;height:${Math.round(imgH*.55)}px;background:linear-gradient(to bottom,transparent,#111);z-index:1"></div>
+      <div style="position:absolute;top:${imgH+Math.round(h*.01)}px;left:${PAD}px;right:${PAD}px;bottom:${PAD}px;z-index:2">
+        <div style="font-size:${eyeS}px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:${OR};margin-bottom:${Math.round(h*.015)}px">${s.eyebrow||'THE REAL PROBLEM'}</div>
+        <div style="font-size:${h1S}px;font-weight:900;line-height:.88;color:#fff;font-family:'Bebas Neue',sans-serif;margin-bottom:${Math.round(h*.03)}px">${hl(s.headline||'',OR)}</div>
+        <div style="font-size:${bS}px;line-height:1.55;color:rgba(255,255,255,.75);margin-bottom:${Math.round(h*.025)}px">${s.body||''}</div>
+        ${s.insight?`<div style="padding:${Math.round(h*.022)}px ${Math.round(w*.04)}px;background:rgba(255,107,0,.1);border-radius:${Math.round(w*.02)}px;border-left:${Math.round(w*.006)}px solid ${OR}"><div style="font-size:${bS*.9}px;color:#fff;line-height:1.5;font-weight:700">${s.insight}</div></div>`:''}
+      </div>`;
+  } else
+
+  // ── TRENDING / WHY NOW ──────────────────────────────────────────────────────
+  if(s.type==='trending'){
+    const eyeS=sz('eyebrow',s.fs||1,w)*.65, h1S=sz('h1',s.fs||1,w)*.85, bS=sz('body',s.fs||1,w);
+    const statS=sz('stat',s.fs||1,w)*.8, imgW=Math.round(w*.38);
+    inner=`
+      ${s.bgImg?`<div style="position:absolute;top:0;right:0;bottom:0;width:${imgW}px;background:url('${s.bgImg}') calc(50% + ${(s.bgTransform&&s.bgTransform.x)||0}%) calc(50% + ${(s.bgTransform&&s.bgTransform.y)||0}%) / ${(s.bgTransform&&s.bgTransform.zoom)||100}% no-repeat;z-index:0"></div>`:`<div style="position:absolute;top:0;right:0;bottom:0;width:${imgW}px;background:rgba(255,107,0,.07);border-left:1.5px dashed rgba(255,107,0,.3);z-index:0"></div>`}
+      <div style="position:absolute;top:0;right:${imgW}px;bottom:0;left:0;background:linear-gradient(to right,#111 72%,transparent);z-index:1"></div>
+      <div style="position:absolute;top:${PAD}px;left:${PAD}px;right:${imgW+Math.round(w*.03)}px;bottom:${PAD}px;z-index:2;display:flex;flex-direction:column;justify-content:space-between">
+        <div>
+          <div style="font-size:${eyeS}px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:${OR};margin-bottom:${Math.round(h*.03)}px">${s.eyebrow||'WHY NOW?'}</div>
+          <div style="font-size:${h1S}px;font-weight:900;line-height:.88;color:#fff;font-family:'Bebas Neue',sans-serif;margin-bottom:${Math.round(h*.03)}px">${hl(s.headline||'',OR)}</div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:${Math.round(h*.022)}px">
+          ${(s.signals||[]).map(sig=>`<div style="display:flex;gap:${Math.round(w*.035)}px;align-items:flex-start;padding:${Math.round(h*.02)}px ${Math.round(w*.04)}px;background:rgba(255,255,255,.04);border-radius:${Math.round(w*.018)}px;border-left:${Math.round(w*.005)}px solid ${OR}"><div><div style="font-size:${bS*.9}px;font-weight:800;color:#fff;margin-bottom:${Math.round(h*.005)}px">${sig.title||sig}</div>${sig.body?`<div style="font-size:${bS*.82}px;color:rgba(255,255,255,.55);line-height:1.4">${sig.body}</div>`:''}</div></div>`).join('')}
+          ${s.window?`<div style="padding:${Math.round(h*.018)}px ${Math.round(w*.04)}px;background:rgba(255,107,0,.12);border-radius:${Math.round(w*.018)}px"><div style="font-size:${bS*.88}px;color:${OR};font-weight:700;line-height:1.5">${s.window}</div></div>`:''}
+        </div>
       </div>`;
   } else
 
