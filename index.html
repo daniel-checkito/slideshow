@@ -581,49 +581,10 @@ async function doPlan() {
   const topic = inp.value.trim();
   if (!topic || busy) return;
 
-  setBusy(true, 'Checking topic…');
+  setBusy(true, 'Researching…');
   addMsg('user', topic);
   inp.value = '';
   setStep(2);
-
-  // ── Clarification check via Claude ──────────────────────────────────────────
-  try {
-    const clarRes = await fetch('https://api.anthropic.com/v1/messages', {
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 300,
-        system: `You are a content assistant for @meshminds3d, an Instagram account about making money with 3D printing.
-Analyse the user's carousel topic. Decide if it needs clarification before researching.
-
-A topic needs clarification if ANY of these are true:
-1. Too vague (e.g. "3d printing" with no angle, "cool products", "something for beginners")
-2. Unclear intent (could be a how-to, product sell, or review — can't tell which)
-3. Missing key data that would make the carousel much better (e.g. product topic with no price range hint, technique topic with no printer model)
-
-A topic is FINE if it's specific enough: "fidget roller", "how to fix stringing on Bambu A1", "is PETG worth it for outdoor prints", "wall key holder Etsy", etc.
-
-Return ONLY valid JSON — no text, no markdown:
-{ "needsClarification": true|false, "questions": ["question 1", "question 2"] }
-Max 2 questions. Only include if needsClarification is true.`,
-        messages: [{ role: 'user', content: `Carousel topic: "${topic}"` }]
-      })
-    });
-    const clarData = await clarRes.json();
-    const clarText = clarData.content?.[0]?.text || '{"needsClarification":false}';
-    let clarJson;
-    try { clarJson = JSON.parse(clarText.replace(/^```json\n?/,'').replace(/```$/,'').trim()); }
-    catch(e) { clarJson = {needsClarification:false}; }
-
-    if (clarJson.needsClarification && clarJson.questions?.length) {
-      setBusy(false);
-      showClarifyCard(topic, clarJson.questions);
-      return;
-    }
-  } catch(e) {
-    // If clarification check fails, just proceed normally
-  }
-
   await runPlan(topic, {});
 }
 
