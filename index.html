@@ -21,6 +21,10 @@ html,body{height:100%;overflow:hidden;font-family:'DM Sans',sans-serif;backgroun
 .logo{font-family:'Bebas Neue';font-size:19px;letter-spacing:2px;color:var(--or);}
 .logo-sub{font-size:11px;color:var(--g5);font-weight:600;}
 .tsep{width:1px;height:20px;background:var(--g2);}
+.tb-link{display:flex;align-items:center;gap:5px;font-size:11px;font-weight:700;color:var(--g5);text-decoration:none;padding:4px 9px;border-radius:5px;border:1px solid var(--g2);transition:all .15s}
+.tb-link:hover{color:#fff;border-color:var(--orange);background:rgba(255,107,0,.1)}
+.tb-link svg{opacity:.7;flex-shrink:0}
+.tb-link:hover svg{opacity:1}
 .sp{flex:1;}
 .xb{display:flex;align-items:center;gap:6px;padding:8px 16px;border-radius:7px;font-size:12px;font-weight:700;border:none;cursor:pointer;transition:all .15s;white-space:nowrap;background:var(--or);color:#fff;}
 .xb:hover{background:#e55f00;transform:translateY(-1px);box-shadow:0 3px 10px rgba(255,107,0,.3);}
@@ -354,7 +358,22 @@ html,body{height:100%;overflow:hidden;font-family:'DM Sans',sans-serif;backgroun
   <div class="logo">meshminds3d</div>
   <span class="logo-sub">· Carousel Studio</span>
   <div class="sp"></div>
-  <span style="font-size:11px;color:var(--g5);font-weight:600">Instagram 1080×1300</span>
+  <div style="display:flex;align-items:center;gap:6px">
+    <a href="https://github.com/PLACEHOLDER/meshminds-carousel-studio" target="_blank" class="tb-link" title="GitHub repo">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.477 2 2 6.477 2 12c0 4.418 2.865 8.166 6.839 9.489.5.092.682-.217.682-.482 0-.237-.009-.868-.013-1.703-2.782.604-3.369-1.341-3.369-1.341-.454-1.155-1.11-1.463-1.11-1.463-.908-.62.069-.608.069-.608 1.003.07 1.531 1.03 1.531 1.03.892 1.529 2.341 1.087 2.91.831.092-.646.35-1.086.636-1.336-2.22-.253-4.555-1.11-4.555-4.943 0-1.091.39-1.984 1.029-2.683-.103-.253-.446-1.27.098-2.647 0 0 .84-.269 2.75 1.025A9.578 9.578 0 0112 6.836c.85.004 1.705.115 2.504.337 1.909-1.294 2.747-1.025 2.747-1.025.546 1.377.202 2.394.1 2.647.64.699 1.028 1.592 1.028 2.683 0 3.842-2.339 4.687-4.566 4.935.359.309.678.919.678 1.852 0 1.336-.012 2.415-.012 2.744 0 .267.18.578.688.48C19.138 20.163 22 16.418 22 12c0-5.523-4.477-10-10-10z"/></svg>
+      GitHub
+    </a>
+    <a href="https://meshminds.app.n8n.cloud/workflow/RJvXziFsWq7zl9kQ" target="_blank" class="tb-link" title="n8n workflow">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="5" cy="12" r="2"/><circle cx="19" cy="5" r="2"/><circle cx="19" cy="19" r="2"/><path d="M7 12h10M17 7l-8 5M17 17l-8-5"/></svg>
+      n8n Flow
+    </a>
+    <a href="https://claude.ai/PLACEHOLDER" target="_blank" class="tb-link" title="Claude chat">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+      Claude
+    </a>
+  </div>
+  <div class="tsep"></div>
+  <span style="font-size:11px;color:var(--g5);font-weight:600">1080×1300</span>
   <div class="tsep"></div>
   <button class="xb" id="expBtn" onclick="doExp()" disabled>📸 Download Slides</button>
 </div>
@@ -465,6 +484,9 @@ html,body{height:100%;overflow:hidden;font-family:'DM Sans',sans-serif;backgroun
 // CONFIG — your n8n webhook URL
 // ═══════════════════════════════════════════════════
 const N8N = 'https://meshminds.app.n8n.cloud/webhook/carousel-studio';
+// Pexels API key for manual image search (free at pexels.com/api)
+// The n8n workflow uses its own server-side key (set PEXELS_API_KEY env var in n8n)
+const PEXELS_KEY = 'PEXELS_KEY_PLACEHOLDER'; // replace with your key
 
 // Export dimensions
 const EW = 1080, EH = 1300, RATIO = EH / EW;
@@ -474,7 +496,8 @@ const EW = 1080, EH = 1300, RATIO = EH / EW;
 // ═══════════════════════════════════════════════════
 let SLIDES = [], caption = '', cur = 0, SSZ = 400;
 let busy = false;
-let currentPlan = null;  // holds plan from step 1
+let currentPlan = null;
+let currentResearchBrief = '';  // holds plan from step 1
 
 function SSH() { return Math.round(SSZ * RATIO); }
 
@@ -667,6 +690,7 @@ async function runPlan(topic, extra) {
     }
 
     currentPlan = data.plan;
+    currentResearchBrief = data.researchBrief || '';
     showPlanCard(currentPlan, topic);
 
   } catch(err) {
@@ -790,6 +814,7 @@ async function doReplan(originalTopic) {
     removeTyping();
     if (!data.success) { addMsg('ai', `❌ ${data.error||'Re-plan failed.'}`); setBusy(false); return; }
     currentPlan = data.plan;
+    currentResearchBrief = data.researchBrief || currentResearchBrief;
     showPlanCard(currentPlan, originalTopic);
   } catch(err) { removeTyping(); addMsg('ai', `❌ ${err.message}`); }
   setBusy(false);
@@ -815,7 +840,7 @@ async function doGenerate() {
     const t2 = setTimeout(() => ctrl2.abort(), 90000);
     const res = await fetch(N8N, {
       method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ action:'generate', plan: currentPlan }),
+      body: JSON.stringify({ action:'generate', plan: currentPlan, researchBrief: currentResearchBrief }),
       keepalive: true, signal: ctrl2.signal
     });
     clearTimeout(t2);
@@ -1149,47 +1174,64 @@ function mkSlide(s,w,h){
 
   let inner='';
   if(s.type==='hero'){
-    const h1S=sz('h1',s.fs||1,w),subS=sz('sub',s.fs||1,w)*.85,mW=Math.round(w*.9);
+    const h1S=sz('h1',s.fs||1,w),subS=sz('sub',s.fs||1,w)*.85,mW=Math.round(w*.88);
+    const tagS=Math.round(w*.028), slideNumS=Math.round(w*.36);
     inner=`
-      <div style="position:absolute;inset:0;z-index:3;pointer-events:none"></div>
-      <div style="position:absolute;left:${PAD}px;right:${PAD}px;bottom:${Math.round(h*.09)}px;z-index:3;display:flex;flex-direction:column;gap:0">
-        <div ${_dg('hero-hl',EXP)} ${_ce('headline',EXP)} style="font-family:'Bebas Neue';font-size:${h1S}px;line-height:.9;color:#fff;letter-spacing:2px;max-width:${mW}px;word-break:break-word;margin-bottom:${Math.round(h*.025)}px;display:inline-block;cursor:grab;${_os(s,'hero-hl',w)}">${hl(s.headline||'',OR)}</div>
-        ${s.subline?`<div ${_dg('hero-sub',EXP)} ${_ce('subline',EXP)} style="font-size:${subS}px;color:rgba(255,255,255,.7);line-height:1.45;font-weight:600;max-width:${mW}px;margin-bottom:${Math.round(h*.03)}px;display:inline-block;cursor:grab;${_os(s,'hero-sub',w)}">${s.subline}</div>`:''}
-        <div style="display:flex;align-items:center;gap:${Math.round(w*.015)}px;font-size:${Math.round(w*.023)}px;color:rgba(255,255,255,.4);letter-spacing:2px;text-transform:uppercase;pointer-events:none">
-          <span>SWIPE</span><div style="width:${Math.round(w*.022)}px;height:${Math.round(w*.022)}px;border-right:2px solid ${OR};border-top:2px solid ${OR};transform:rotate(45deg)"></div>
+      <div style="position:absolute;inset:0;background:linear-gradient(165deg,rgba(0,0,0,0) 30%,rgba(0,0,0,.85) 100%);z-index:2;pointer-events:none"></div>
+      <div style="position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.92) 0%,rgba(0,0,0,.2) 55%,transparent 100%);z-index:2;pointer-events:none"></div>
+      <div style="position:absolute;top:0;left:0;right:0;height:${Math.round(h*.004)}px;background:${OR};z-index:5;pointer-events:none"></div>
+      <div style="position:absolute;top:${Math.round(h*.05)}px;left:${PAD}px;z-index:4;pointer-events:none">
+        <div style="display:inline-flex;align-items:center;gap:${Math.round(w*.018)}px;background:rgba(255,107,0,.15);border:1px solid rgba(255,107,0,.4);border-radius:100px;padding:${Math.round(h*.008)}px ${Math.round(w*.04)}px">
+          <div style="width:${Math.round(w*.018)}px;height:${Math.round(w*.018)}px;border-radius:50%;background:${OR}"></div>
+          <span style="font-size:${tagS}px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:${OR}">@meshminds3d</span>
+        </div>
+      </div>
+      <div style="position:absolute;left:${PAD}px;right:${PAD}px;bottom:${Math.round(h*.07)}px;z-index:4;display:flex;flex-direction:column;gap:0">
+        ${s.subline?`<div ${_dg('hero-sub',EXP)} ${_ce('subline',EXP)} style="font-size:${subS}px;color:rgba(255,107,0,.9);line-height:1.35;font-weight:800;max-width:${mW}px;margin-bottom:${Math.round(h*.018)}px;display:inline-block;letter-spacing:.5px;text-transform:uppercase;${_os(s,'hero-sub',w)}">${s.subline}</div>`:''}
+        <div ${_dg('hero-hl',EXP)} ${_ce('headline',EXP)} style="font-family:'Bebas Neue';font-size:${h1S}px;line-height:.88;color:#fff;letter-spacing:2px;max-width:${mW}px;word-break:break-word;margin-bottom:${Math.round(h*.035)}px;display:inline-block;cursor:grab;text-shadow:0 2px 20px rgba(0,0,0,.5);${_os(s,'hero-hl',w)}">${hl(s.headline||'',OR)}</div>
+        <div style="display:flex;align-items:center;gap:${Math.round(w*.02)}px;pointer-events:none">
+          <div style="width:${Math.round(w*.07)}px;height:2px;background:${OR};border-radius:2px"></div>
+          <span style="font-size:${tagS}px;color:rgba(255,255,255,.5);font-weight:700;letter-spacing:2px;text-transform:uppercase">SWIPE →</span>
         </div>
       </div>`;
   } else if(s.type==='content'){
     const h2S=sz('h2',s.fs||1,w),eyeS=sz('eyebrow',s.fs||1,w),bdS=sz('body',s.fs||1,w),boxS=sz('box',s.fs||1,w),stS=sz('stat',s.fs||1,w),stLS=sz('statSub',s.fs||1,w);
-    const bnS=Math.round(w*.42),mW=s.stat?Math.round(w*.52):Math.round(w*.86);
-    inner=`<div style="position:absolute;top:${Math.round(h*-.01)}px;right:${Math.round(w*.01)}px;font-family:'Bebas Neue';font-size:${bnS}px;color:rgba(255,255,255,.042);line-height:1;z-index:2;pointer-events:none">${String(s.id).padStart(2,'0')}</div>
-      <div style="position:absolute;left:${PAD}px;right:${PAD}px;bottom:${Math.round(h*.1)}px;z-index:3;display:flex;flex-direction:column;gap:0">
-        <div ${_dg('cnt-eye',EXP)} ${_ce('eyebrow',EXP)} style="font-size:${eyeS}px;color:${OR};font-weight:800;letter-spacing:3px;text-transform:uppercase;margin-bottom:${Math.round(h*.025)}px;display:inline-block;${_os(s,'cnt-eye',w)}">${s.eyebrow||''}</div>
-        <div style="width:${Math.round(w*.12)}px;height:${Math.max(3,Math.round(w*.005))}px;background:${a};border-radius:2px;margin-bottom:${Math.round(h*.03)}px;pointer-events:none"></div>
-        <div ${_dg('cnt-hl',EXP)} ${_ce('headline',EXP)} style="font-family:'Bebas Neue';font-size:${h2S}px;line-height:.93;color:#fff;letter-spacing:2px;max-width:${mW}px;word-break:break-word;margin-bottom:${Math.round(h*.03)}px;display:inline-block;${_os(s,'cnt-hl',w)}">${hl(s.headline||'',a)}</div>
-        <div ${_dg('cnt-body',EXP)} ${_ce('body',EXP)} style="font-size:${bdS}px;color:rgba(255,255,255,.75);line-height:1.48;font-weight:500;max-width:${mW}px;${s.tip?'margin-bottom:'+Math.round(h*.03)+'px':''};display:inline-block;${_os(s,'cnt-body',w)}">${hl(s.body||'',a)}</div>
-        ${s.tip?`<div ${_dg('cnt-tip',EXP)} ${_ce('tip',EXP)} style="background:rgba(255,255,255,.07);border-left:${Math.max(3,Math.round(w*.005))}px solid ${a};padding:${Math.round(boxS*.5)}px ${Math.round(boxS*.75)}px;font-size:${boxS}px;color:rgba(255,255,255,.9);line-height:1.45;border-radius:0 4px 4px 0;font-weight:600;max-width:${Math.round(w*.86)}px;display:block;${_os(s,'cnt-tip',w)}">${s.tip}</div>`:''}
+    const bnS=Math.round(w*.38),mW=s.stat?Math.round(w*.54):Math.round(w*.86);
+    inner=`
+      <div style="position:absolute;top:0;right:${Math.round(w*.01)}px;font-family:'Bebas Neue';font-size:${bnS}px;color:rgba(255,255,255,.035);line-height:1;z-index:2;pointer-events:none;letter-spacing:-2px">${String(s.id).padStart(2,'0')}</div>
+      <div style="position:absolute;top:0;left:0;right:0;height:${Math.max(3,Math.round(h*.004))}px;background:linear-gradient(to right,${OR} ${prog}%,rgba(255,255,255,.08) ${prog}%);z-index:4;pointer-events:none"></div>
+      <div style="position:absolute;left:${PAD}px;right:${PAD}px;bottom:${Math.round(h*.085)}px;z-index:3;display:flex;flex-direction:column">
+        <div style="display:flex;align-items:center;gap:${Math.round(w*.02)}px;margin-bottom:${Math.round(h*.022)}px">
+          <div style="width:${Math.round(w*.05)}px;height:${Math.max(2,Math.round(w*.003))}px;background:${OR};flex-shrink:0;pointer-events:none"></div>
+          <div ${_dg('cnt-eye',EXP)} ${_ce('eyebrow',EXP)} style="font-size:${eyeS}px;color:${OR};font-weight:800;letter-spacing:3px;text-transform:uppercase;${_os(s,'cnt-eye',w)}">${s.eyebrow||''}</div>
+        </div>
+        <div ${_dg('cnt-hl',EXP)} ${_ce('headline',EXP)} style="font-family:'Bebas Neue';font-size:${h2S}px;line-height:.9;color:#fff;letter-spacing:2px;max-width:${mW}px;word-break:break-word;margin-bottom:${Math.round(h*.03)}px;${_os(s,'cnt-hl',w)}">${hl(s.headline||'',a)}</div>
+        <div ${_dg('cnt-body',EXP)} ${_ce('body',EXP)} style="font-size:${bdS}px;color:rgba(255,255,255,.72);line-height:1.52;font-weight:500;max-width:${mW}px;${s.tip?'margin-bottom:'+Math.round(h*.028)+'px':''};${_os(s,'cnt-body',w)}">${hl(s.body||'',a)}</div>
+        ${s.tip?`<div ${_dg('cnt-tip',EXP)} ${_ce('tip',EXP)} style="background:rgba(255,107,0,.1);border:1px solid rgba(255,107,0,.3);border-left:${Math.max(3,Math.round(w*.005))}px solid ${a};padding:${Math.round(boxS*.55)}px ${Math.round(boxS*.8)}px;font-size:${boxS}px;color:rgba(255,255,255,.92);line-height:1.5;border-radius:0 6px 6px 0;font-weight:600;max-width:${Math.round(w*.86)}px;${_os(s,'cnt-tip',w)}">${s.tip}</div>`:''}
       </div>
-      ${s.stat?`<div ${_dg('cnt-stat',EXP)} style="position:absolute;top:${Math.round(h*.06)}px;right:${PAD}px;text-align:center;border:${Math.max(2,Math.round(w*.003))}px solid rgba(255,107,0,.35);border-radius:8px;padding:${Math.round(w*.03)}px ${Math.round(w*.04)}px;background:rgba(0,0,0,.4);z-index:3;${_os(s,'cnt-stat',w)}">
-          <div ${_ce('stat',EXP)} style="font-family:'Bebas Neue';font-size:${stS}px;color:${a};line-height:1">${s.stat}</div>
-          ${s.statLabel?`<div ${_ce('statLabel',EXP)} style="font-size:${stLS}px;color:rgba(255,255,255,.55);font-weight:700;letter-spacing:1px;margin-top:${Math.round(w*.01)}px">${s.statLabel}</div>`:''}
+      ${s.stat?`<div ${_dg('cnt-stat',EXP)} style="position:absolute;top:${Math.round(h*.07)}px;right:${PAD}px;text-align:right;z-index:3;${_os(s,'cnt-stat',w)}">
+          <div ${_ce('stat',EXP)} style="font-family:'Bebas Neue';font-size:${stS}px;color:${a};line-height:.85;letter-spacing:-1px">${s.stat}</div>
+          ${s.statLabel?`<div ${_ce('statLabel',EXP)} style="font-size:${stLS}px;color:rgba(255,255,255,.45);font-weight:700;letter-spacing:1px;margin-top:${Math.round(w*.008)}px;text-align:right">${s.statLabel}</div>`:''}
         </div>`:''}`;
 
   } else if(s.type==='summary'){
-    const h2S=sz('h2',s.fs||1,w),liS=Math.round(sz('listitem',s.fs||1,w)*1.1),gap=Math.round(h*.022);
+    const h2S=Math.round(sz('h2',s.fs||1,w)*.9),liS=Math.round(sz('listitem',s.fs||1,w)*1.05),gap=Math.round(h*.018);
+    const numS=Math.round(sz('h2',s.fs||1,w)*.52);
     const items=(s.items||[]).map((it,ii)=>`
-      <div ${_dg('sum-item'+ii,EXP)} style="display:flex;align-items:stretch;gap:${Math.round(w*.03)}px;padding:${Math.round(h*.01)}px 0;${_os(s,'sum-item'+ii,w)}">
-        <div style="width:3px;background:${OR};border-radius:2px;flex-shrink:0;opacity:.85;pointer-events:none"></div>
-        <span ${_ce('items.'+ii,EXP)} style="font-size:${liS}px;color:rgba(255,255,255,.9);font-weight:600;line-height:1.45;flex:1">${it}</span>
+      <div ${_dg('sum-item'+ii,EXP)} style="display:flex;align-items:flex-start;gap:${Math.round(w*.032)}px;padding:${Math.round(h*.014)}px 0;border-bottom:1px solid rgba(255,255,255,${ii<(s.items||[]).length-1?'.06':'0'});${_os(s,'sum-item'+ii,w)}">
+        <div style="font-family:'Bebas Neue';font-size:${numS}px;color:${OR};line-height:1;flex-shrink:0;min-width:${Math.round(w*.065)}px;padding-top:${Math.round(h*.003)}px;pointer-events:none">${String(ii+1).padStart(2,'0')}</div>
+        <span ${_ce('items.'+ii,EXP)} style="font-size:${liS}px;color:rgba(255,255,255,.88);font-weight:600;line-height:1.45;flex:1">${it}</span>
       </div>`).join('');
-    inner=`<div style="position:absolute;inset:0;background:radial-gradient(ellipse at 50% 0%,rgba(255,107,0,.15) 0%,transparent 60%);z-index:2;pointer-events:none"></div>
+    inner=`
+      <div style="position:absolute;inset:0;background:radial-gradient(ellipse at 50% 0%,rgba(255,107,0,.1) 0%,transparent 55%);z-index:2;pointer-events:none"></div>
+      <div style="position:absolute;top:0;left:0;right:0;height:${Math.max(3,Math.round(h*.004))}px;background:linear-gradient(to right,${OR} ${prog}%,rgba(255,255,255,.08) ${prog}%);z-index:4;pointer-events:none"></div>
       <div style="position:absolute;inset:0;z-index:3;display:flex;flex-direction:column;justify-content:center;padding:${PAD}px">
-        <div ${_dg('sum-hl',EXP)} style="display:inline-block;margin-bottom:${Math.round(h*.04)}px;${_os(s,'sum-hl',w)}">
-          <div style="font-family:'Bebas Neue';font-size:${h2S}px;line-height:.93;color:#fff;letter-spacing:2px" ${_ce('headline',EXP)}>${hl(s.headline||'THE *TAKEAWAY*',OR)}</div>
+        <div ${_dg('sum-hl',EXP)} style="margin-bottom:${Math.round(h*.032)}px;${_os(s,'sum-hl',w)}">
+          <div style="font-family:'Bebas Neue';font-size:${h2S}px;line-height:.88;color:#fff;letter-spacing:2px;margin-bottom:${Math.round(h*.012)}px" ${_ce('headline',EXP)}>${hl(s.headline||'THE *TAKEAWAY*',OR)}</div>
+          <div style="width:${Math.round(w*.08)}px;height:2px;background:${OR};pointer-events:none"></div>
         </div>
-        <div style="display:flex;flex-direction:column;gap:${gap}px">${items}</div>
-      </div>`;
-
+        <div style="display:flex;flex-direction:column">${items}</div>
+      </div>`
   } else if(s.type==='cta'){
     const h1S=Math.round(sz('h1',s.fs||1,w)*1.1);
     const bpS=Math.round(sz('btnp',s.fs||1,w)*1.2), bsS=sz('btns',s.fs||1,w);
@@ -1235,46 +1277,61 @@ function mkSlide(s,w,h){
 
   // ── COMPARISON ──────────────────────────────────────────
   else if(s.type==='comparison'){
-    const eyeS=sz('eyebrow',s.fs||1,w), h2S=sz('h2',s.fs||1,w), valS=Math.round(sz('h2',s.fs||1,w)*1.1);
-    const subS=sz('body',s.fs||1,w), verdS=sz('box',s.fs||1,w);
+    const eyeS=sz('eyebrow',s.fs||1,w)*.85, h2S=sz('h2',s.fs||1,w)*.9, valS=Math.round(sz('h2',s.fs||1,w)*1.05);
+    const subS=sz('body',s.fs||1,w)*.9, verdS=sz('box',s.fs||1,w)*.88;
     inner=`
-      <div style="position:absolute;left:${PAD}px;right:${PAD}px;bottom:${Math.round(h*.08)}px;z-index:3">
-        <div ${_dg('cmp-eye',EXP)} ${_ce('eyebrow',EXP)} style="font-size:${eyeS}px;color:${OR};font-weight:900;letter-spacing:3px;text-transform:uppercase;margin-bottom:${Math.round(h*.02)}px;display:inline-block;${_os(s,'cmp-eye',w)}">${s.eyebrow||'THE DIFFERENCE'}</div>
-        <div ${_dg('cmp-hl',EXP)} ${_ce('headline',EXP)} style="font-family:'Bebas Neue';font-size:${h2S}px;line-height:.93;color:#fff;letter-spacing:2px;margin-bottom:${Math.round(h*.03)}px;display:inline-block;${_os(s,'cmp-hl',w)}">${hl(s.headline||'',OR)}</div>
-        <div ${_dg('cmp-cols',EXP)} style="display:flex;gap:${Math.round(w*.03)}px;${_os(s,'cmp-cols',w)}">
-          <div style="flex:1;background:rgba(255,255,255,.06);border:1.5px solid rgba(255,255,255,.12);border-radius:8px;padding:${Math.round(w*.04)}px;display:flex;flex-direction:column;gap:${Math.round(h*.01)}px">
-            <div style="font-size:${Math.round(eyeS*.85)}px;color:rgba(255,255,255,.45);font-weight:800;letter-spacing:2px;text-transform:uppercase">${s.left_label||'BEFORE'}</div>
-            <div ${_ce('left_value',EXP)} style="font-family:'Bebas Neue';font-size:${valS}px;color:rgba(255,255,255,.6);line-height:1">${s.left_value||''}</div>
-            <div ${_ce('left_sub',EXP)} style="font-size:${subS}px;color:rgba(255,255,255,.4);line-height:1.4;font-weight:500">${s.left_sub||''}</div>
+      <div style="position:absolute;top:0;left:0;right:0;height:${Math.max(3,Math.round(h*.004))}px;background:linear-gradient(to right,${OR} ${prog}%,rgba(255,255,255,.08) ${prog}%);z-index:4;pointer-events:none"></div>
+      <div style="position:absolute;left:${PAD}px;right:${PAD}px;bottom:${Math.round(h*.06)}px;z-index:3">
+        <div style="display:flex;align-items:center;gap:${Math.round(w*.02)}px;margin-bottom:${Math.round(h*.016)}px">
+          <div style="width:${Math.round(w*.04)}px;height:2px;background:${OR};pointer-events:none"></div>
+          <div ${_dg('cmp-eye',EXP)} ${_ce('eyebrow',EXP)} style="font-size:${eyeS}px;color:${OR};font-weight:800;letter-spacing:3px;text-transform:uppercase;${_os(s,'cmp-eye',w)}">${s.eyebrow||'THE DIFFERENCE'}</div>
+        </div>
+        <div ${_dg('cmp-hl',EXP)} ${_ce('headline',EXP)} style="font-family:'Bebas Neue';font-size:${h2S}px;line-height:.9;color:#fff;letter-spacing:2px;margin-bottom:${Math.round(h*.028)}px;${_os(s,'cmp-hl',w)}">${hl(s.headline||'',OR)}</div>
+        <div ${_dg('cmp-cols',EXP)} style="display:flex;gap:${Math.round(w*.025)}px;${_os(s,'cmp-cols',w)}">
+          <div style="flex:1;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:${Math.round(w*.038)}px ${Math.round(w*.04)}px;display:flex;flex-direction:column;gap:${Math.round(h*.008)}px">
+            <div style="font-size:${Math.round(eyeS*.75)}px;color:rgba(255,255,255,.35);font-weight:800;letter-spacing:2px;text-transform:uppercase;margin-bottom:${Math.round(h*.006)}px">${s.left_label||'BEFORE'}</div>
+            <div ${_ce('left_value',EXP)} style="font-family:'Bebas Neue';font-size:${valS}px;color:rgba(255,255,255,.5);line-height:.88;letter-spacing:-1px">${s.left_value||''}</div>
+            <div ${_ce('left_sub',EXP)} style="font-size:${subS}px;color:rgba(255,255,255,.35);line-height:1.4;font-weight:500">${s.left_sub||''}</div>
           </div>
-          <div style="flex:1;background:rgba(255,107,0,.12);border:1.5px solid rgba(255,107,0,.4);border-radius:8px;padding:${Math.round(w*.04)}px;display:flex;flex-direction:column;gap:${Math.round(h*.01)}px">
-            <div style="font-size:${Math.round(eyeS*.85)}px;color:${OR};font-weight:800;letter-spacing:2px;text-transform:uppercase">${s.right_label||'AFTER'}</div>
-            <div ${_ce('right_value',EXP)} style="font-family:'Bebas Neue';font-size:${valS}px;color:${OR};line-height:1">${s.right_value||''}</div>
-            <div ${_ce('right_sub',EXP)} style="font-size:${subS}px;color:rgba(255,107,0,.7);line-height:1.4;font-weight:500">${s.right_sub||''}</div>
+          <div style="flex:1;background:rgba(255,107,0,.1);border:1.5px solid rgba(255,107,0,.45);border-radius:10px;padding:${Math.round(w*.038)}px ${Math.round(w*.04)}px;display:flex;flex-direction:column;gap:${Math.round(h*.008)}px;position:relative;overflow:hidden">
+            <div style="position:absolute;top:-${Math.round(h*.03)}px;right:-${Math.round(w*.04)}px;font-family:'Bebas Neue';font-size:${Math.round(w*.4)}px;color:rgba(255,107,0,.07);line-height:1;pointer-events:none">✓</div>
+            <div style="font-size:${Math.round(eyeS*.75)}px;color:${OR};font-weight:800;letter-spacing:2px;text-transform:uppercase;margin-bottom:${Math.round(h*.006)}px">${s.right_label||'AFTER'}</div>
+            <div ${_ce('right_value',EXP)} style="font-family:'Bebas Neue';font-size:${valS}px;color:${OR};line-height:.88;letter-spacing:-1px">${s.right_value||''}</div>
+            <div ${_ce('right_sub',EXP)} style="font-size:${subS}px;color:rgba(255,107,0,.75);line-height:1.4;font-weight:600">${s.right_sub||''}</div>
           </div>
         </div>
-        ${s.verdict?`<div ${_dg('cmp-verd',EXP)} ${_ce('verdict',EXP)} style="margin-top:${Math.round(h*.025)}px;background:rgba(255,255,255,.06);border-left:3px solid ${OR};padding:${Math.round(verdS*.5)}px ${Math.round(verdS*.75)}px;font-size:${verdS}px;color:rgba(255,255,255,.85);font-weight:700;border-radius:0 5px 5px 0;display:block;${_os(s,'cmp-verd',w)}">${s.verdict}</div>`:''}
+        ${s.verdict?`<div ${_dg('cmp-verd',EXP)} ${_ce('verdict',EXP)} style="margin-top:${Math.round(h*.022)}px;background:rgba(255,255,255,.05);border-left:3px solid ${OR};padding:${Math.round(verdS*.5)}px ${Math.round(verdS*.75)}px;font-size:${verdS}px;color:rgba(255,255,255,.82);font-weight:700;border-radius:0 6px 6px 0;${_os(s,'cmp-verd',w)}">${s.verdict}</div>`:''}
       </div>`;
   }
 
   // ── STEPS ────────────────────────────────────────────────
   else if(s.type==='steps'){
-    const eyeS=sz('eyebrow',s.fs||1,w), h2S=Math.round(sz('h2',s.fs||1,w)*.75);
-    const numS=Math.round(sz('h2',s.fs||1,w)*.45);
-    const stepS=Math.round(sz('body',s.fs||1,w)*1.18);
+    const eyeS=sz('eyebrow',s.fs||1,w)*.85, h2S=Math.round(sz('h2',s.fs||1,w)*.72);
+    const numS=Math.round(sz('h2',s.fs||1,w)*.58);
+    const stepS=Math.round(sz('body',s.fs||1,w)*1.08);
+    const stepTitleS=Math.round(sz('body',s.fs||1,w)*.88);
     const steps=(s.steps||[]).map((st,ii)=>`
-      <div ${_dg('stp-row'+ii,EXP)} style="display:flex;align-items:center;gap:${Math.round(w*.04)}px;${_os(s,'stp-row'+ii,w)}">
-        <div style="font-family:'Bebas Neue';font-size:${numS}px;color:${OR};line-height:1;flex-shrink:0;min-width:${Math.round(w*.08)}px">${st.num||String(ii+1).padStart(2,'0')}</div>
-        <div style="width:2px;height:${Math.round(h*.045)}px;background:rgba(255,107,0,.35);flex-shrink:0;pointer-events:none"></div>
-        <div ${_ce('steps.'+ii,EXP)} style="font-size:${stepS}px;color:rgba(255,255,255,.92);line-height:1.4;font-weight:700;flex:1">${st.text||''}</div>
+      <div ${_dg('stp-row'+ii,EXP)} style="display:flex;align-items:flex-start;gap:${Math.round(w*.03)}px;${_os(s,'stp-row'+ii,w)}">
+        <div style="flex-shrink:0;display:flex;flex-direction:column;align-items:center;gap:0">
+          <div style="font-family:'Bebas Neue';font-size:${numS}px;color:${OR};line-height:.9;min-width:${Math.round(w*.075)}px;text-align:center">${st.num||String(ii+1).padStart(2,'0')}</div>
+          ${ii<(s.steps||[]).length-1?`<div style="width:1px;height:${Math.round(h*.02)}px;background:rgba(255,107,0,.25);margin-top:${Math.round(h*.004)}px;pointer-events:none"></div>`:''}
+        </div>
+        <div style="flex:1;padding-top:${Math.round(h*.003)}px">
+          ${(st.title)?`<div style="font-size:${stepTitleS}px;font-weight:800;color:#fff;line-height:1.2;margin-bottom:${Math.round(h*.004)}px">${st.title}</div>`:''}
+          <div ${_ce('steps.'+ii,EXP)} style="font-size:${(st.title)?stepS*.88:stepS}px;color:rgba(255,255,255,${(st.title)?'.6':'.9'});line-height:1.45;font-weight:${(st.title)?'500':'700'}">${st.text||st.body||''}</div>
+        </div>
       </div>`).join('');
     inner=`
-      <div style="position:absolute;left:${PAD}px;right:${PAD}px;top:50%;transform:translateY(-50%);z-index:3">
-        <div ${_dg('stp-head',EXP)} style="margin-bottom:${Math.round(h*.025)}px;${_os(s,'stp-head',w)}">
-          <div ${_ce('eyebrow',EXP)} style="font-size:${eyeS}px;color:${OR};font-weight:900;letter-spacing:3px;text-transform:uppercase;margin-bottom:${Math.round(h*.012)}px">${s.eyebrow||'HOW TO START'}</div>
-          <div ${_ce('headline',EXP)} style="font-family:'Bebas Neue';font-size:${h2S}px;line-height:.93;color:#fff;letter-spacing:2px">${hl(s.headline||'',OR)}</div>
+      <div style="position:absolute;top:0;left:0;right:0;height:${Math.max(3,Math.round(h*.004))}px;background:linear-gradient(to right,${OR} ${prog}%,rgba(255,255,255,.08) ${prog}%);z-index:4;pointer-events:none"></div>
+      <div style="position:absolute;left:${PAD}px;right:${PAD}px;top:50%;transform:translateY(-52%);z-index:3">
+        <div ${_dg('stp-head',EXP)} style="margin-bottom:${Math.round(h*.028)}px;${_os(s,'stp-head',w)}">
+          <div style="display:flex;align-items:center;gap:${Math.round(w*.02)}px;margin-bottom:${Math.round(h*.012)}px">
+            <div style="width:${Math.round(w*.04)}px;height:2px;background:${OR};pointer-events:none"></div>
+            <div ${_ce('eyebrow',EXP)} style="font-size:${eyeS}px;color:${OR};font-weight:800;letter-spacing:3px;text-transform:uppercase">${s.eyebrow||'HOW TO START'}</div>
+          </div>
+          <div ${_ce('headline',EXP)} style="font-family:'Bebas Neue';font-size:${h2S}px;line-height:.9;color:#fff;letter-spacing:2px">${hl(s.headline||'',OR)}</div>
         </div>
-        <div style="display:flex;flex-direction:column;gap:${Math.round(h*.02)}px">${steps}</div>
+        <div style="display:flex;flex-direction:column;gap:${Math.round(h*.018)}px">${steps}</div>
       </div>`;
   }
 
@@ -1458,28 +1515,29 @@ function mkSlide(s,w,h){
   // ── MARKET SCORE ────────────────────────────────────────────────────────────
   if(s.type==='market_score'){
     const eyeS=sz('eyebrow',s.fs||1,w)*.65, h1S=sz('h1',s.fs||1,w)*.82, bS=sz('body',s.fs||1,w)*.8;
-    const labelS=sz('eyebrow',s.fs||1,w)*.55, imgW=Math.round(w*.37);
+    const labelS=sz('eyebrow',s.fs||1,w)*.55, imgW=Math.round(w*.36);
+    const barH=Math.round(h*.022);
     const scores=s.scores||[{label:'Search volume',value:s.searchVol||'—',pct:70,color:OR},{label:'Competition',value:s.competitionLevel||'Medium',pct:48,color:'rgba(255,200,50,1)'},{label:'Margin',value:s.marginLevel||'High',pct:88,color:'#4ecb7a'}];
     inner=`
       ${s.bgImg?`<div style="position:absolute;top:0;right:0;bottom:0;width:${imgW}px;background:url('${s.bgImg}') calc(50% + ${(s.bgTransform&&s.bgTransform.x)||0}%) calc(50% + ${(s.bgTransform&&s.bgTransform.y)||0}%) / ${(s.bgTransform&&s.bgTransform.zoom)||100}% no-repeat;z-index:0"></div>`:'<div style="position:absolute;top:0;right:0;bottom:0;width:'+imgW+'px;background:rgba(255,107,0,.07);border-left:1.5px dashed rgba(255,107,0,.3);display:flex;align-items:center;justify-content:center;font-size:'+Math.round(w*.025)+'px;color:rgba(255,107,0,.4);font-weight:800;text-transform:uppercase;writing-mode:vertical-rl;z-index:0">BG IMAGE</div>'}
-      <div style="position:absolute;top:0;right:${imgW}px;bottom:0;left:0;background:linear-gradient(to right,#111 75%,transparent);z-index:1"></div>
+      <div style="position:absolute;top:0;right:${imgW}px;bottom:0;left:0;background:linear-gradient(to right,#111 78%,transparent);z-index:1"></div>
       <div style="position:absolute;top:${PAD}px;left:${PAD}px;right:${imgW+Math.round(w*.03)}px;bottom:${PAD}px;z-index:2;display:flex;flex-direction:column;justify-content:space-between">
         <div>
-          <div style="font-size:${eyeS}px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:${OR};margin-bottom:${Math.round(h*.03)}px">${s.eyebrow||'Worth selling?'}</div>
+          <div style="font-size:${eyeS}px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:${OR};margin-bottom:${Math.round(h*.015)}px">${s.eyebrow||'Worth selling?'}</div>
           <div style="font-size:${h1S}px;font-weight:900;line-height:.9;color:#fff;font-family:'Bebas Neue',sans-serif">${hl(s.headline||'MARKET *SCORE*',OR)}</div>
         </div>
-        <div style="display:flex;flex-direction:column;gap:${Math.round(h*.03)}px">
+        <div style="display:flex;flex-direction:column;gap:${Math.round(h*.028)}px">
           ${scores.map(sc=>`
           <div>
-            <div style="display:flex;justify-content:space-between;margin-bottom:${Math.round(h*.012)}px">
-              <span style="font-size:${labelS}px;color:rgba(255,255,255,.5)">${sc.label}</span>
-              <span style="font-size:${labelS}px;font-weight:900;color:${sc.color}">${sc.value}</span>
+            <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:${Math.round(h*.01)}px">
+              <span style="font-size:${labelS}px;color:rgba(255,255,255,.45);text-transform:uppercase;letter-spacing:1px">${sc.label}</span>
+              <span style="font-size:${bS}px;font-weight:900;color:${sc.color};font-family:'Bebas Neue',sans-serif">${sc.value}</span>
             </div>
-            <div style="height:${Math.round(h*.007)}px;background:rgba(255,255,255,.1);border-radius:${Math.round(w*.005)}px">
-              <div style="width:${sc.pct}%;height:100%;background:${sc.color};border-radius:${Math.round(w*.005)}px"></div>
+            <div style="height:${barH}px;background:rgba(255,255,255,.08);border-radius:${Math.round(barH/2)}px;overflow:hidden">
+              <div style="width:${sc.pct}%;height:100%;background:${sc.color};border-radius:${Math.round(barH/2)}px;box-shadow:0 0 ${Math.round(barH*1.5)}px ${sc.color}80"></div>
             </div>
           </div>`).join('')}
-          ${s.verdict?`<div style="padding:${Math.round(h*.022)}px ${Math.round(w*.04)}px;background:rgba(255,107,0,.12);border-radius:${Math.round(w*.02)}px"><div style="font-size:${labelS}px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:${OR};margin-bottom:${Math.round(h*.008)}px">Verdict</div><div style="font-size:${bS}px;line-height:1.5;color:#fff">${s.verdict}</div></div>`:''}
+          ${s.verdict?`<div style="padding:${Math.round(h*.02)}px ${Math.round(w*.04)}px;background:rgba(255,107,0,.1);border-radius:${Math.round(w*.02)}px;border-left:3px solid ${OR}"><div style="font-size:${bS*.88}px;line-height:1.5;color:rgba(255,255,255,.85)">${s.verdict}</div></div>`:''}
         </div>
       </div>`;
   } else
@@ -1583,29 +1641,34 @@ function mkSlide(s,w,h){
 
   // ── VERTICAL LEDGER ─────────────────────────────────────────────────────────
   if(s.type==='ledger'){
-    const eyeS=sz('eyebrow',s.fs||1,w)*.65, h1S=sz('h1',s.fs||1,w)*.82, bS=sz('body',s.fs||1,w)*.8;
-    const labelS=sz('eyebrow',s.fs||1,w)*.55, imgH=Math.round(h*.42);
+    const eyeS=sz('eyebrow',s.fs||1,w)*.62, h1S=sz('h1',s.fs||1,w)*.76, bS=sz('body',s.fs||1,w)*.78;
+    const labelS=sz('eyebrow',s.fs||1,w)*.52, imgH=Math.round(h*.34);
     const rows=s.rows||[];
+    const totalRow=rows.find(r=>r.isTotal);
+    const normalRows=rows.filter(r=>!r.isTotal);
     inner=`
-      ${s.bgImg?`<div style="position:absolute;top:0;left:0;right:0;height:${imgH}px;background:url('${s.bgImg}') calc(50% + ${(s.bgTransform&&s.bgTransform.x)||0}%) calc(50% + ${(s.bgTransform&&s.bgTransform.y)||0}%) / ${(s.bgTransform&&s.bgTransform.zoom)||100}% no-repeat;z-index:0"></div>`:'<div style="position:absolute;top:0;left:0;right:0;height:'+imgH+'px;background:rgba(255,107,0,.07);border-bottom:1.5px dashed rgba(255,107,0,.3);display:flex;align-items:center;justify-content:center;font-size:'+Math.round(w*.025)+'px;color:rgba(255,107,0,.4);font-weight:800;text-transform:uppercase;z-index:0">BG IMAGE</div>'}
-      <div style="position:absolute;top:${Math.round(imgH*.55)}px;left:0;right:0;height:${Math.round(imgH*.55)}px;background:linear-gradient(to bottom,transparent,#111);z-index:1"></div>
-      <div style="position:absolute;top:${imgH+Math.round(h*.01)}px;left:${PAD}px;right:${PAD}px;bottom:${PAD}px;z-index:2">
-        <div style="font-size:${eyeS}px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:${OR};margin-bottom:${Math.round(h*.012)}px">${s.eyebrow||'The real margin'}</div>
-        <div style="font-size:${h1S}px;font-weight:900;line-height:.9;color:#fff;font-family:'Bebas Neue',sans-serif;margin-bottom:${Math.round(h*.025)}px">${hl(s.headline||'COST vs *SELL PRICE*',OR)}</div>
-        <div style="background:rgba(0,0,0,.5);border-radius:${Math.round(w*.025)}px;overflow:hidden">
-          ${rows.map((row,i)=>{
-            const isTotal=!!row.isTotal;
-            return `<div style="display:flex;justify-content:space-between;align-items:center;padding:${Math.round(h*.022)}px ${Math.round(w*.05)}px;${i<rows.length-1?'border-bottom:1px solid rgba(255,255,255,.07)':''};background:${isTotal?'rgba(255,107,0,.18)':'transparent'}">
-              <span style="font-size:${isTotal?bS:labelS}px;font-weight:${isTotal?700:400};color:${isTotal?OR:'rgba(255,255,255,.5)'}">${row.label}</span>
-              <span style="font-size:${isTotal?Math.round(h1S*.75):bS}px;font-weight:900;color:${isTotal?OR:'#fff'};font-family:'Bebas Neue',sans-serif">${row.value}</span>
-            </div>`;
-          }).join('')}
+      ${s.bgImg?`<div style="position:absolute;top:0;left:0;right:0;height:${imgH}px;background:url('${s.bgImg}') calc(50% + ${(s.bgTransform&&s.bgTransform.x)||0}%) calc(50% + ${(s.bgTransform&&s.bgTransform.y)||0}%) / ${(s.bgTransform&&s.bgTransform.zoom)||100}% no-repeat;z-index:0"></div>`:`<div style="position:absolute;top:0;left:0;right:0;height:${imgH}px;background:linear-gradient(135deg,rgba(255,107,0,.06) 0%,rgba(0,0,0,0) 60%);z-index:0;border-bottom:1px solid rgba(255,255,255,.05)"></div>`}
+      <div style="position:absolute;top:0;left:0;right:0;height:${imgH+Math.round(h*.1)}px;background:linear-gradient(to top,#111 0%,transparent 55%);z-index:1;pointer-events:none"></div>
+      <div style="position:absolute;top:0;left:0;right:0;height:${Math.max(3,Math.round(h*.004))}px;background:linear-gradient(to right,${OR} ${prog}%,rgba(255,255,255,.08) ${prog}%);z-index:4;pointer-events:none"></div>
+      <div style="position:absolute;left:${PAD}px;right:${PAD}px;top:${imgH-Math.round(h*.018)}px;bottom:${Math.round(PAD*.75)}px;z-index:2;display:flex;flex-direction:column">
+        <div style="display:flex;align-items:center;gap:${Math.round(w*.02)}px;margin-bottom:${Math.round(h*.01)}px">
+          <div style="width:${Math.round(w*.04)}px;height:2px;background:${OR};pointer-events:none"></div>
+          <div style="font-size:${eyeS}px;color:${OR};font-weight:800;letter-spacing:3px;text-transform:uppercase">${s.eyebrow||'THE MATH'}</div>
         </div>
-      </div>`;
-  } else
-
-
-  // ── IP / LEGAL ──────────────────────────────────────────────────────────────
+        <div style="font-family:'Bebas Neue';font-size:${h1S}px;line-height:.88;color:#fff;letter-spacing:2px;margin-bottom:${Math.round(h*.018)}px">${hl(s.headline||'',OR)}</div>
+        <div style="flex:1;display:flex;flex-direction:column;gap:0;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);border-radius:8px;overflow:hidden;min-height:0">
+          ${normalRows.map((r,ri)=>`
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:${Math.round(h*.014)}px ${Math.round(w*.04)}px;flex:1;${ri<normalRows.length-1?'border-bottom:1px solid rgba(255,255,255,.05)':''}">
+              <span style="font-size:${labelS}px;color:rgba(255,255,255,.45);font-weight:700;text-transform:uppercase;letter-spacing:1px">${r.label||''}</span>
+              <span style="font-size:${labelS*1.3}px;font-weight:800;color:rgba(255,255,255,.75);font-variant-numeric:tabular-nums">${r.value||''}</span>
+            </div>`).join('')}
+          ${totalRow?`
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:${Math.round(h*.018)}px ${Math.round(w*.04)}px;background:rgba(255,107,0,.13);border-top:1px solid rgba(255,107,0,.28)">
+              <span style="font-size:${labelS}px;color:rgba(255,255,255,.85);font-weight:800;text-transform:uppercase;letter-spacing:1px">${totalRow.label||'PROFIT/UNIT'}</span>
+              <span style="font-family:'Bebas Neue';font-size:${h1S*.68}px;color:${OR};letter-spacing:.5px">${totalRow.value||''}</span>
+            </div>`:''}
+        </div>
+      </div>`
   if(s.type==='ip_legal'){
     const eyeS=sz('eyebrow',s.fs||1,w)*.65, h1S=sz('h1',s.fs||1,w)*.82, bS=sz('body',s.fs||1,w)*.8;
     const imgH=Math.round(h*.3);
@@ -1772,35 +1835,51 @@ function mkSlide(s,w,h){
 
   // ── PAIN POINT / WHY THEY BUY ──────────────────────────────────────────────
   if(s.type==='pain_point'){
-    const eyeS=sz('eyebrow',s.fs||1,w)*.65, h1S=sz('h1',s.fs||1,w)*.85, bS=sz('body',s.fs||1,w);
-    const imgH=Math.round(h*.38);
+    const eyeS=sz('eyebrow',s.fs||1,w)*.62, h1S=sz('h1',s.fs||1,w)*.82, bS=sz('body',s.fs||1,w)*1.05;
+    const insightS=sz('box',s.fs||1,w)*.92, imgH=Math.round(h*.35);
     inner=`
-      ${s.bgImg?`<div style="position:absolute;top:0;left:0;right:0;height:${imgH}px;background:url('${s.bgImg}') calc(50% + ${(s.bgTransform&&s.bgTransform.x)||0}%) calc(50% + ${(s.bgTransform&&s.bgTransform.y)||0}%) / ${(s.bgTransform&&s.bgTransform.zoom)||100}% no-repeat;z-index:0"></div>`:`<div style="position:absolute;top:0;left:0;right:0;height:${imgH}px;background:rgba(255,107,0,.07);border-bottom:1.5px dashed rgba(255,107,0,.3);display:flex;align-items:center;justify-content:center;font-size:${Math.round(w*.025)}px;color:rgba(255,107,0,.4);font-weight:800;text-transform:uppercase;z-index:0">BG IMAGE</div>`}
-      <div style="position:absolute;top:${Math.round(imgH*.55)}px;left:0;right:0;height:${Math.round(imgH*.55)}px;background:linear-gradient(to bottom,transparent,#111);z-index:1"></div>
-      <div style="position:absolute;top:${imgH+Math.round(h*.01)}px;left:${PAD}px;right:${PAD}px;bottom:${PAD}px;z-index:2">
-        <div style="font-size:${eyeS}px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:${OR};margin-bottom:${Math.round(h*.015)}px">${s.eyebrow||'THE REAL PROBLEM'}</div>
-        <div style="font-size:${h1S}px;font-weight:900;line-height:.88;color:#fff;font-family:'Bebas Neue',sans-serif;margin-bottom:${Math.round(h*.03)}px">${hl(s.headline||'',OR)}</div>
-        <div style="font-size:${bS}px;line-height:1.55;color:rgba(255,255,255,.75);margin-bottom:${Math.round(h*.025)}px">${s.body||''}</div>
-        ${s.insight?`<div style="padding:${Math.round(h*.022)}px ${Math.round(w*.04)}px;background:rgba(255,107,0,.1);border-radius:${Math.round(w*.02)}px;border-left:${Math.round(w*.006)}px solid ${OR}"><div style="font-size:${bS*.9}px;color:#fff;line-height:1.5;font-weight:700">${s.insight}</div></div>`:''}
+      ${s.bgImg?`<div style="position:absolute;top:0;left:0;right:0;height:${imgH}px;background:url('${s.bgImg}') calc(50% + ${(s.bgTransform&&s.bgTransform.x)||0}%) calc(50% + ${(s.bgTransform&&s.bgTransform.y)||0}%) / ${(s.bgTransform&&s.bgTransform.zoom)||100}% no-repeat;z-index:0"></div>`:`<div style="position:absolute;top:0;left:0;right:0;height:${imgH}px;background:linear-gradient(135deg,rgba(255,107,0,.06),rgba(0,0,0,0));z-index:0"></div>`}
+      <div style="position:absolute;top:0;left:0;right:0;height:${imgH+Math.round(h*.1)}px;background:linear-gradient(to top,#111 0%,transparent 55%);z-index:1;pointer-events:none"></div>
+      <div style="position:absolute;top:0;left:0;right:0;height:${Math.max(3,Math.round(h*.004))}px;background:linear-gradient(to right,${OR} ${prog}%,rgba(255,255,255,.08) ${prog}%);z-index:4;pointer-events:none"></div>
+      <div style="position:absolute;left:${PAD}px;right:${PAD}px;bottom:${Math.round(PAD*.85)}px;z-index:3;display:flex;flex-direction:column;gap:${Math.round(h*.016)}px">
+        <div style="display:flex;align-items:center;gap:${Math.round(w*.02)}px">
+          <div style="width:${Math.round(w*.04)}px;height:2px;background:${OR};pointer-events:none"></div>
+          <div style="font-size:${eyeS}px;color:${OR};font-weight:800;letter-spacing:3px;text-transform:uppercase">${s.eyebrow||'THE REAL PROBLEM'}</div>
+        </div>
+        <div style="font-family:'Bebas Neue';font-size:${h1S}px;line-height:.88;color:#fff;letter-spacing:2px">${hl(s.headline||'',OR)}</div>
+        ${s.body?`<div style="font-size:${bS}px;color:rgba(255,255,255,.68);line-height:1.55;font-weight:500;padding-left:${Math.round(w*.04)}px;border-left:2px solid rgba(255,107,0,.4)">${s.body}</div>`:''}
+        ${s.insight?`<div style="background:rgba(255,107,0,.12);border:1px solid rgba(255,107,0,.3);border-radius:6px;padding:${Math.round(h*.016)}px ${Math.round(w*.04)}px;font-size:${insightS}px;color:#fff;font-weight:700;line-height:1.45">${s.insight}</div>`:''}
       </div>`;
   } else
 
   // ── TRENDING / WHY NOW ──────────────────────────────────────────────────────
   if(s.type==='trending'){
-    const eyeS=sz('eyebrow',s.fs||1,w)*.65, h1S=sz('h1',s.fs||1,w)*.85, bS=sz('body',s.fs||1,w);
-    const statS=sz('stat',s.fs||1,w)*.8, imgW=Math.round(w*.38);
+    const eyeS=sz('eyebrow',s.fs||1,w)*.62, h1S=sz('h1',s.fs||1,w)*.82, bS=sz('body',s.fs||1,w)*.82;
+    const labelS=sz('eyebrow',s.fs||1,w)*.5, winS=sz('box',s.fs||1,w)*.88;
+    const signals=s.signals||[];
+    const imgW=Math.round(w*.38);
     inner=`
-      ${s.bgImg?`<div style="position:absolute;top:0;right:0;bottom:0;width:${imgW}px;background:url('${s.bgImg}') calc(50% + ${(s.bgTransform&&s.bgTransform.x)||0}%) calc(50% + ${(s.bgTransform&&s.bgTransform.y)||0}%) / ${(s.bgTransform&&s.bgTransform.zoom)||100}% no-repeat;z-index:0"></div>`:`<div style="position:absolute;top:0;right:0;bottom:0;width:${imgW}px;background:rgba(255,107,0,.07);border-left:1.5px dashed rgba(255,107,0,.3);z-index:0"></div>`}
-      <div style="position:absolute;top:0;right:${imgW}px;bottom:0;left:0;background:linear-gradient(to right,#111 72%,transparent);z-index:1"></div>
-      <div style="position:absolute;top:${PAD}px;left:${PAD}px;right:${imgW+Math.round(w*.03)}px;bottom:${PAD}px;z-index:2;display:flex;flex-direction:column;justify-content:space-between">
-        <div>
-          <div style="font-size:${eyeS}px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:${OR};margin-bottom:${Math.round(h*.03)}px">${s.eyebrow||'WHY NOW?'}</div>
-          <div style="font-size:${h1S}px;font-weight:900;line-height:.88;color:#fff;font-family:'Bebas Neue',sans-serif;margin-bottom:${Math.round(h*.03)}px">${hl(s.headline||'',OR)}</div>
+      ${s.bgImg?`<div style="position:absolute;top:0;right:0;bottom:0;width:${imgW}px;background:url('${s.bgImg}') calc(50% + ${(s.bgTransform&&s.bgTransform.x)||0}%) calc(50% + ${(s.bgTransform&&s.bgTransform.y)||0}%) / ${(s.bgTransform&&s.bgTransform.zoom)||100}% no-repeat;z-index:0"></div><div style="position:absolute;top:0;right:0;bottom:0;width:${imgW+Math.round(w*.1)}px;background:linear-gradient(to right,#111 ${Math.round(w*.12)}px,transparent 100%);z-index:1;pointer-events:none"></div>`:''}
+      <div style="position:absolute;top:0;left:0;right:0;height:${Math.max(3,Math.round(h*.004))}px;background:linear-gradient(to right,${OR} ${prog}%,rgba(255,255,255,.08) ${prog}%);z-index:4;pointer-events:none"></div>
+      <div style="position:absolute;left:${PAD}px;right:${s.bgImg?imgW+Math.round(w*.06):PAD}px;bottom:${Math.round(PAD*.85)}px;z-index:3;display:flex;flex-direction:column;gap:${Math.round(h*.016)}px">
+        <div style="display:flex;align-items:center;gap:${Math.round(w*.02)}px">
+          <div style="width:${Math.round(w*.04)}px;height:2px;background:${OR};pointer-events:none"></div>
+          <div style="font-size:${eyeS}px;color:${OR};font-weight:800;letter-spacing:3px;text-transform:uppercase">${s.eyebrow||'WHY NOW?'}</div>
         </div>
-        <div style="display:flex;flex-direction:column;gap:${Math.round(h*.022)}px">
-          ${(s.signals||[]).map(sig=>`<div style="display:flex;gap:${Math.round(w*.035)}px;align-items:flex-start;padding:${Math.round(h*.02)}px ${Math.round(w*.04)}px;background:rgba(255,255,255,.04);border-radius:${Math.round(w*.018)}px;border-left:${Math.round(w*.005)}px solid ${OR}"><div><div style="font-size:${bS*.9}px;font-weight:800;color:#fff;margin-bottom:${Math.round(h*.005)}px">${sig.title||sig}</div>${sig.body?`<div style="font-size:${bS*.82}px;color:rgba(255,255,255,.55);line-height:1.4">${sig.body}</div>`:''}</div></div>`).join('')}
-          ${s.window?`<div style="padding:${Math.round(h*.018)}px ${Math.round(w*.04)}px;background:rgba(255,107,0,.12);border-radius:${Math.round(w*.018)}px"><div style="font-size:${bS*.88}px;color:${OR};font-weight:700;line-height:1.5">${s.window}</div></div>`:''}
+        <div style="font-family:'Bebas Neue';font-size:${h1S}px;line-height:.88;color:#fff;letter-spacing:2px">${hl(s.headline||'',OR)}</div>
+        <div style="display:flex;flex-direction:column;gap:${Math.round(h*.014)}px">
+          ${signals.slice(0,3).map((sg,si)=>`
+            <div style="display:flex;align-items:flex-start;gap:${Math.round(w*.03)}px">
+              <div style="flex-shrink:0;width:${Math.round(w*.06)}px;height:${Math.round(w*.06)}px;background:rgba(255,107,0,.15);border:1px solid rgba(255,107,0,.4);border-radius:4px;display:flex;align-items:center;justify-content:center;margin-top:${Math.round(h*.003)}px">
+                <div style="font-family:'Bebas Neue';font-size:${Math.round(w*.028)}px;color:${OR}">${si+1}</div>
+              </div>
+              <div>
+                <div style="font-size:${labelS*1.15}px;font-weight:800;color:#fff;letter-spacing:.5px;margin-bottom:${Math.round(h*.004)}px">${sg.title||''}</div>
+                <div style="font-size:${labelS}px;color:rgba(255,255,255,.55);line-height:1.45;font-weight:500">${sg.body||''}</div>
+              </div>
+            </div>`).join('')}
         </div>
+        ${s.window?`<div style="background:rgba(255,107,0,.12);border:1px solid rgba(255,107,0,.3);border-radius:6px;padding:${Math.round(h*.014)}px ${Math.round(w*.04)}px;font-size:${winS}px;color:#fff;font-weight:700;line-height:1.45">${s.window}</div>`:''}
       </div>`;
   } else
 
@@ -2068,124 +2147,124 @@ function imgEditReset(){imgReset(cur);}
 // ═══════════════════════════════════════════════════
 async function showImageGallery(topic) {
   const msgs = document.getElementById('msgs');
+  // Remove old gallery if exists
+  const old = document.getElementById('imgGalleryMsg');
+  if(old) old.remove();
+
   const galleryMsg = document.createElement('div');
   galleryMsg.className = 'msg ai';
   galleryMsg.id = 'imgGalleryMsg';
   galleryMsg.innerHTML = `<div class="img-gallery">
-    <div class="img-gallery-title">Product images — click to use as background</div>
-    <div class="img-gallery-loading" id="galleryStatus">Searching for images…</div>
+    <div class="img-gallery-title">Swap background image</div>
+    <div class="img-gallery-loading" id="galleryStatus">Searching Pexels…</div>
     <div class="img-gallery-grid" id="galleryGrid"></div>
   </div>`;
   msgs.appendChild(galleryMsg);
   msgs.scrollTop = msgs.scrollHeight;
 
   try {
-    // Use Claude to search for image URLs via web search
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 600,
-        tools: [{ type: 'web_search_20250305', name: 'web_search' }],
-        system: `Find 6-9 real product image URLs for: "${topic}".
-Search Etsy, Google Images, or product sites. Return ONLY a JSON array of direct image URLs (ending in .jpg .jpeg .png .webp).
-Prefer: clean product photos, lifestyle shots, workshop photos.
-Return ONLY valid JSON array: ["url1", "url2", ...]`,
-        messages: [{ role: 'user', content: `Find product images for: ${topic}` }]
-      })
+    // Search Pexels directly from frontend — display only (no canvas taint)
+    // When user clicks USE, we proxy through n8n to get base64
+    const query = encodeURIComponent(topic + ' product');
+    const res = await fetch(`https://api.pexels.com/v1/search?query=${query}&per_page=9&orientation=portrait`, {
+      headers: { Authorization: PEXELS_KEY }
     });
     const data = await res.json();
-
-    // Extract URLs from response
-    let urls = [];
-    for (const block of data.content||[]) {
-      if (block.type === 'text') {
-        try {
-          const match = block.text.match(/\[.*?\]/s);
-          if (match) { urls = JSON.parse(match[0]); break; }
-        } catch(e) {}
-      }
-    }
+    const photos = data.photos || [];
 
     const grid = document.getElementById('galleryGrid');
     const status = document.getElementById('galleryStatus');
 
-    if (!urls.length) {
+    if(!photos.length) {
       status.textContent = 'No images found — upload your own in the editor panel.';
       return;
     }
 
-    status.textContent = '';
-    let loaded = 0;
+    status.textContent = 'Click an image to fetch and apply it as background.';
 
-    urls.slice(0, 9).forEach((url, i) => {
+    photos.forEach((photo, i) => {
       const thumb = document.createElement('div');
       thumb.className = 'img-thumb';
       thumb.id = 'gthumb'+i;
-      thumb.innerHTML = `<img src="${url}" onerror="this.parentElement.style.display='none'" onload="this.parentElement.classList.add('loaded')" crossorigin="anonymous"><div class="use-btn">USE</div>`;
-      thumb.onclick = () => useGalleryImage(url, i);
+      const previewUrl = photo.src.medium;
+      const fullUrl = photo.src.large || photo.src.medium;
+      thumb.innerHTML = `<img src="${previewUrl}" onerror="this.parentElement.style.display='none'" onload="this.parentElement.classList.add('loaded')"><div class="use-btn">USE</div>`;
+      thumb.onclick = () => fetchAndApplyImage(fullUrl, i);
       grid.appendChild(thumb);
     });
 
     msgs.scrollTop = msgs.scrollHeight;
   } catch(e) {
     const status = document.getElementById('galleryStatus');
-    if (status) status.textContent = 'Image search unavailable — upload your own.';
+    if(status) status.textContent = 'Image search unavailable — upload your own.';
   }
 }
 
-function useGalleryImage(url, idx) {
-  // Convert URL to blob then set as bgImg for current slide
-  const slide = SLIDES[cur];
-  if (!slide) return;
-
+// Fetch image via n8n proxy (server-side, no CORS) then apply as base64
+async function fetchAndApplyImage(url, idx) {
   const thumb = document.getElementById('gthumb'+idx);
+  if(thumb) { thumb.querySelector('.use-btn').textContent = '⏳'; }
 
-  fetch(url, {mode:'cors'})
-    .then(r => r.blob())
-    .then(blob => {
-      const reader = new FileReader();
-      reader.onload = e => {
-        const raw = e.target.result;
-        const needsConvert = raw.startsWith('data:image/avif') || raw.startsWith('data:image/webp');
-        const apply = (dataUrl) => {
-          slide.bgImg = dataUrl;
-          slide.bgTransform = {zoom:100, x:0, y:0};
-          refresh(); buildEditor(slide); buildThumbs();
-          // Mark as used
-          document.querySelectorAll('.img-thumb.used').forEach(t => {
-            t.classList.remove('used');
-            t.querySelector('.use-btn').textContent = 'USE';
-          });
-          if (thumb) { thumb.classList.add('used'); thumb.querySelector('.use-btn').textContent = '✓ ADDED'; }
-        };
-        if (needsConvert) {
-          const img = new Image();
-          img.onload = () => { const c=document.createElement('canvas'); c.width=img.naturalWidth||img.width; c.height=img.naturalHeight||img.height; c.getContext('2d').drawImage(img,0,0); apply(c.toDataURL('image/jpeg',0.92)); };
-          img.onerror = () => apply(raw);
-          img.src = raw;
-        } else { apply(raw); }
-      };
-      reader.readAsDataURL(blob);
-    })
-    .catch(() => {
-      // If CORS fails, try setting via img element conversion
-      const img = new Image();
-      img.crossOrigin = 'anonymous';
-      img.onload = () => {
-        const c = document.createElement('canvas');
-        c.width = img.naturalWidth||800; c.height = img.naturalHeight||1000;
-        c.getContext('2d').drawImage(img,0,0);
-        const dataUrl = c.toDataURL('image/jpeg', 0.92);
-        slide.bgImg = dataUrl;
-        slide.bgTransform = {zoom:100,x:0,y:0};
-        refresh(); buildEditor(slide); buildThumbs();
-        if (thumb) { thumb.classList.add('used'); thumb.querySelector('.use-btn').textContent = '✓ ADDED'; }
-      };
-      img.onerror = () => addMsg('ai', '⚠️ Could not load this image due to CORS restrictions. Try right-clicking it and saving, then uploading.');
-      img.src = url + '?t=' + Date.now();
+  try {
+    // Route through n8n to get base64 (server-side fetch, no CORS restriction)
+    const res = await fetch(N8N, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({action: 'fetch_image', url})
     });
+    const data = await res.json();
+    if(data.success && data.base64) {
+      applyBase64Image(data.base64, idx);
+    } else {
+      // Fallback: try direct canvas (may fail on some images)
+      applyImageViaCanvas(url, idx);
+    }
+  } catch(e) {
+    applyImageViaCanvas(url, idx);
+  }
 }
+
+function applyBase64Image(dataUrl, idx) {
+  const slide = SLIDES[cur];
+  if(!slide) return;
+  slide.bgImg = dataUrl;
+  slide.bgTransform = {zoom: 110, x: 0, y: 0};
+  refresh(); buildEditor(slide); buildThumbs();
+  const thumb = document.getElementById('gthumb'+idx);
+  document.querySelectorAll('.img-thumb.used').forEach(t => {
+    t.classList.remove('used'); t.querySelector('.use-btn').textContent = 'USE';
+  });
+  if(thumb) { thumb.classList.add('used'); thumb.querySelector('.use-btn').textContent = '✓'; }
+}
+
+function applyImageViaCanvas(url, idx) {
+  const img = new Image();
+  img.crossOrigin = 'anonymous';
+  img.onload = () => {
+    const c = document.createElement('canvas');
+    c.width = img.naturalWidth || 800; c.height = img.naturalHeight || 1000;
+    c.getContext('2d').drawImage(img, 0, 0);
+    try {
+      const dataUrl = c.toDataURL('image/jpeg', 0.88);
+      applyBase64Image(dataUrl, idx);
+    } catch(e) {
+      const thumb = document.getElementById('gthumb'+idx);
+      if(thumb) thumb.querySelector('.use-btn').textContent = 'CORS ✗';
+    }
+  };
+  img.onerror = () => {
+    const thumb = document.getElementById('gthumb'+idx);
+    if(thumb) thumb.querySelector('.use-btn').textContent = 'Failed';
+  };
+  img.src = url;
+}
+
+
+function useGalleryImage(url, idx) {
+  // Delegate to the smarter fetcher
+  fetchAndApplyImage(url, idx);
+}
+
 
 // ═══════════════════════════════════════════════════
 // TRANSPARENT EXPORT TOGGLE
