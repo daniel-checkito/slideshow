@@ -2294,8 +2294,8 @@ function revertSlide() {
 // ═══════════════════════════════════════════════════
 // PANEL WIDTHS — driven by JS
 // ═══════════════════════════════════════════════════
-let chatW = 320, edW = 268;
-const MIN_PANEL = 160, MIN_CTR = 220;
+let chatW = 480, edW = 300;
+const MIN_PANEL = 260, MAX_CHAT = 640, MIN_CTR = 220;
 
 function applyWidths() {
   const app = document.getElementById('app');
@@ -2303,7 +2303,7 @@ function applyWidths() {
   const edEl = document.getElementById('ed');
   const chatCollapsed = chatEl.classList.contains('collapsed');
   const edCollapsed   = edEl.classList.contains('collapsed');
-  chatEl.style.width = chatCollapsed ? '0' : chatW + 'px';
+  chatEl.style.width = chatCollapsed ? '0' : Math.min(chatW, MAX_CHAT) + 'px';
   edEl.style.width   = edCollapsed   ? '0' : edW   + 'px';
   // resize handles visibility
   document.getElementById('rhl').style.display = chatCollapsed ? 'none' : '';
@@ -2351,7 +2351,7 @@ document.addEventListener('mousemove', e => {
   const otherPanelW = resizing==='left' ? edW : chatW;
   const diff = e.clientX - resizeStartX;
   if (resizing==='left') {
-    chatW = Math.max(MIN_PANEL, Math.min(resizeStartW + diff, appW - otherPanelW - MIN_CTR - 10));
+    chatW = Math.max(MIN_PANEL, Math.min(MAX_CHAT, Math.min(resizeStartW + diff, appW - otherPanelW - MIN_CTR - 10)));
   } else {
     edW = Math.max(MIN_PANEL, Math.min(resizeStartW - diff, appW - otherPanelW - MIN_CTR - 10));
   }
