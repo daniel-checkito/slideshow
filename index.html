@@ -574,7 +574,7 @@ function hideLoad() { document.getElementById('slideLoading').classList.remove('
 // STEP 1 — PLAN
 // Calls n8n with action:'plan', gets back a plan object
 // ═══════════════════════════════════════════════════
-async function doPlan() {
+async async function doPlan() {
   // If slides already exist, treat input as revision instructions
   if (SLIDES.length) { await doReviseSlides(); return; }
   const inp = document.getElementById('topicInput');
