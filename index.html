@@ -1630,8 +1630,8 @@ function mkSlide(s,w,h){
               <span style="font-family:'Bebas Neue';font-size:${h1S*.68}px;color:${OR};letter-spacing:.5px">${totalRow.value||''}</span>
             </div>`:''}
         </div>
-      </div>`
-  if(s.type==='ip_legal'){
+   </div>`
+  } else if(s.type==='ip_legal'){
     const eyeS=sz('eyebrow',s.fs||1,w)*.65, h1S=sz('h1',s.fs||1,w)*.82, bS=sz('body',s.fs||1,w)*.8;
     const imgH=Math.round(h*.3);
     inner=`
